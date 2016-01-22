@@ -34,6 +34,12 @@ class scheduler {
 	public:
 	
 	
+		scheduler (const scheduler &) = delete;
+		scheduler (scheduler &&) = delete;
+		scheduler & operator = (const scheduler &) = delete;
+		scheduler & operator = (scheduler &&) = delete;
+		
+		
 		explicit scheduler () {
 			
 			memset(ts_,0,sizeof(ts_));
