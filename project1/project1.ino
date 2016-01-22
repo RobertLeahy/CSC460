@@ -78,7 +78,7 @@ class scheduler {
 			if (t.active) return;
 			t.active=true;
 			auto now=micros();
-			t.next=t.next_regular=now+t.period;
+			t.next=t.next_regular=now;
 			
 		}
 		
@@ -121,6 +121,115 @@ class scheduler {
 };
 
 
+class servo {
+	
+	
+	private:
+	
+	
+		scheduler & s_;
+		size_t i_;
+		unsigned long w_;
+		unsigned long p_;
+		bool state_;
+		
+		
+		static constexpr unsigned long period=20000U;
+		static constexpr unsigned long min=500U;
+		static constexpr unsigned long max=2500U;
+		static constexpr unsigned long default_width=min+((max-min)/2U);
+		
+		
+		static void callback (scheduler &, size_t, void * ptr) {
+			
+			auto & self=*reinterpret_cast<servo *>(ptr);
+			
+			if (self.state_) {
+				
+				digitalWrite(self.p_,LOW);
+				self.state_=false;
+				
+				return;
+				
+			}
+			
+			digitalWrite(self.p_,HIGH);
+			self.s_.schedule(self.i_,self.w_);
+			self.state_=true;
+			
+		}
+		
+		
+		void check_width () {
+			
+			if (w_>max) w_=max;
+			else if (w_<min) w_=min;
+			
+		}
+		
+		
+	public:
+	
+	
+		servo () = delete;
+		servo (const servo &) = delete;
+		servo (servo &&) = delete;
+		servo & operator = (const servo &) = delete;
+		servo & operator = (servo &&) = delete;
+		
+		
+		servo (scheduler & s, size_t i, unsigned long pin, unsigned long w=default_width, unsigned long delay=0) : s_(s), i_(i), w_(w), p_(pin), state_(false) {
+			
+			check_width();
+			s.create(i,period,delay,&callback,this);
+			
+		}
+		
+		
+		~servo () {
+			
+			deactivate();
+			
+		}
+		
+		
+		explicit operator bool () const {
+			
+			return s_.is_active(i_);
+			
+		}
+		
+		
+		void activate () const {
+			
+			s_.activate(i_);
+			
+		}
+		
+		
+		void deactivate () const {
+			
+			s_.deactivate(i_);
+			
+		}
+		
+		
+		unsigned long width () const {
+			
+			return w_;
+			
+		}
+		void width (unsigned long w) {
+			
+			w_=w;
+			
+			check_width();
+			
+		}
+	
+	
+};
+
 
 void setup () {
 	
@@ -128,28 +237,41 @@ void setup () {
 	
 }
 
-static void pwm (scheduler & s, size_t i, void * ptr) {
+
+struct direction {
 	
-	bool & pin_state=*reinterpret_cast<bool *>(ptr);
-	if (pin_state) {
-		
-		digitalWrite(22,LOW);
-		pin_state=false;
-		return;
-		
-	}
 	
-	digitalWrite(22,HIGH);
-	s.schedule(i,1500);
-	pin_state=true;
+	unsigned long width;
+	bool up;
+	::servo & servo;
+	
+	
+};
+
+
+void sweep (scheduler & s, size_t, void * ptr) {
+	
+	direction & d=*reinterpret_cast<direction *>(ptr);
+	
+	if (d.width==2500) d.up=false;
+	else if (d.width==500) d.up=true;
+	
+	if (d.up) d.width+=100;
+	else d.width-=100;
+	
+	d.servo.width(d.width);
 	
 }
+
 
 void loop() {
 	
 	scheduler s;
-	bool pin_state=false;
-	s.create(0,20000,0,&pwm,&pin_state);
+	servo se(s,0,22,500U);
+	se.activate();
+	
+	direction d{500U,true,se};
+	s.create(1,20000,100,&sweep,&d);
 	
 	for (;;) s();
 	
