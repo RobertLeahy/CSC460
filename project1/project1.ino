@@ -280,6 +280,40 @@ class servo : public scheduled_task {
 };
 
 
+class serial : public scheduled_task {
+
+
+	private:
+		
+	
+		Stream & s_;
+		
+		
+		static constexpr unsigned long period=1000U*1000U/20U;
+		
+		
+	protected:
+	
+	
+		virtual void receive (unsigned char b) = 0;
+		
+		
+		virtual void execute () override {
+			
+			for (auto b=s_.read();b!=-1;b=s_.read()) receive(static_cast<unsigned char>(b));
+			
+		}
+		
+		
+	public:
+	
+	
+		serial (Stream & st, scheduler & s, size_t i, unsigned long delay=0, bool active=true) : scheduled_task(s,i,period,delay,active), s_(st) {	}
+
+
+};
+
+
 void setup () {
 	
 	pinMode(22,OUTPUT);
