@@ -121,14 +121,91 @@ class scheduler {
 };
 
 
-class servo {
-	
-	
+class scheduled_task {
+
+
 	private:
 	
 	
 		scheduler & s_;
 		size_t i_;
+		
+		
+		static void callback (scheduler &, size_t, void * ptr) {
+			
+			auto & self=*reinterpret_cast<scheduled_task *>(ptr);
+			self.execute();
+			
+		}
+		
+		
+	protected:
+	
+	
+		virtual void execute () = 0;
+		
+		
+	public:
+	
+	
+		scheduled_task () = delete;
+		scheduled_task (const scheduled_task &) = delete;
+		scheduled_task (scheduled_task &&) = delete;
+		scheduled_task & operator = (const scheduled_task &) = delete;
+		scheduled_task & operator = (scheduled_task &&) = delete;
+		
+		
+		scheduled_task (scheduler & s, size_t i, unsigned long period, unsigned long delay=0, bool active=true) : s_(s), i_(i) {
+			
+			s_.create(i_,period,delay,&callback,this,active);
+			
+		}
+		
+		
+		virtual ~scheduled_task () noexcept {
+			
+			deactivate();
+			
+		}
+		
+		
+		void activate () noexcept {
+			
+			s_.activate(i_);
+			
+		}
+		
+		
+		void deactivate () noexcept {
+			
+			s_.deactivate(i_);
+			
+		}
+		
+		
+		explicit operator bool () const noexcept {
+			
+			return s_.is_active(i_);
+			
+		}
+		
+		
+		void schedule (unsigned long delay) {
+			
+			s_.schedule(i_,delay);
+			
+		}
+
+
+};
+
+
+class servo : public scheduled_task {
+	
+	
+	private:
+	
+	
 		unsigned long w_;
 		unsigned long p_;
 		bool state_;
@@ -140,22 +217,23 @@ class servo {
 		static constexpr unsigned long default_width=min+((max-min)/2U);
 		
 		
-		static void callback (scheduler &, size_t, void * ptr) {
+	protected:
+	
+	
+		virtual void execute () override {
 			
-			auto & self=*reinterpret_cast<servo *>(ptr);
-			
-			if (self.state_) {
+			if (state_) {
 				
-				digitalWrite(self.p_,LOW);
-				self.state_=false;
+				digitalWrite(p_,LOW);
+				state_=false;
 				
 				return;
 				
 			}
 			
-			digitalWrite(self.p_,HIGH);
-			self.s_.schedule(self.i_,self.w_);
-			self.state_=true;
+			digitalWrite(p_,HIGH);
+			schedule(w_);
+			state_=true;
 			
 		}
 		
@@ -178,38 +256,9 @@ class servo {
 		servo & operator = (servo &&) = delete;
 		
 		
-		servo (scheduler & s, size_t i, unsigned long pin, unsigned long w=default_width, unsigned long delay=0) : s_(s), i_(i), w_(w), p_(pin), state_(false) {
+		servo (scheduler & s, size_t i, unsigned long pin, unsigned long w=default_width, unsigned long delay=0) : scheduled_task(s,i,period,delay), w_(w), p_(pin), state_(false) {
 			
 			check_width();
-			s.create(i,period,delay,&callback,this);
-			
-		}
-		
-		
-		~servo () {
-			
-			deactivate();
-			
-		}
-		
-		
-		explicit operator bool () const {
-			
-			return s_.is_active(i_);
-			
-		}
-		
-		
-		void activate () const {
-			
-			s_.activate(i_);
-			
-		}
-		
-		
-		void deactivate () const {
-			
-			s_.deactivate(i_);
 			
 		}
 		
