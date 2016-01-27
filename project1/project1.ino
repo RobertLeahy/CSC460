@@ -40,7 +40,7 @@ class scheduler {
 		scheduler & operator = (scheduler &&) = delete;
 		
 		
-		explicit scheduler () {
+		scheduler () {
 			
 			memset(ts_,0,sizeof(ts_));
 			
