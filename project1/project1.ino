@@ -313,11 +313,24 @@ class serial : public scheduled_task {
 
 };
 
+#define LAZER_PIN 13
+#define SERVO_PIN 22
+#define JOYSTICK_BUTTON_PIN 24
+#define JOYSTICK_XAXIS_PIN A0
+
+#define JOYSTICK_PWM_SCALE_FACTOR -10
+#define JITTER_WIDTH_THRESHOLD 5
+#define SERVO_WIDTH_MAX 2500
+#define SERVO_WIDTH_MIN 500
+
+int joystick_x_value = 512;
+bool joystick_pressed = false;
 
 void setup () {
-	
-	pinMode(22,OUTPUT);
-	
+
+	pinMode(SERVO_PIN, OUTPUT);
+  pinMode(LAZER_PIN, OUTPUT);
+  pinMode(JOYSTICK_BUTTON_PIN, INPUT_PULLUP);
 }
 
 
@@ -336,8 +349,8 @@ void sweep (scheduler & s, size_t, void * ptr) {
 	
 	direction & d=*reinterpret_cast<direction *>(ptr);
 	
-	if (d.width==2500) d.up=false;
-	else if (d.width==500) d.up=true;
+	if (d.width==SERVO_WIDTH_MAX) d.up=false;
+	else if (d.width==SERVO_WIDTH_MIN) d.up=true;
 	
 	if (d.up) d.width+=100;
 	else d.width-=100;
@@ -346,15 +359,48 @@ void sweep (scheduler & s, size_t, void * ptr) {
 	
 }
 
+void move_servo (scheduler & s, size_t, void * ptr) {
+  
+  direction & d=*reinterpret_cast<direction *>(ptr);
+
+  // Convert raw joystick value to a PWM width
+  int delta_width = (joystick_x_value - 512) / JOYSTICK_PWM_SCALE_FACTOR;
+  
+  // Set a width threshold to prevent jitter
+  if (delta_width > -JITTER_WIDTH_THRESHOLD && delta_width < JITTER_WIDTH_THRESHOLD) return;
+
+  // Prevent servo from moving past its max/min points
+  if (delta_width > 0 && d.width >= SERVO_WIDTH_MAX) return;
+  if (delta_width < 0 && d.width <= SERVO_WIDTH_MIN) return;
+  
+  d.width += delta_width;
+  d.servo.width(d.width);
+}
+
+void check_joystick (scheduler & s, size_t, void * ptr) {
+  
+  joystick_x_value = analogRead(JOYSTICK_XAXIS_PIN);
+  joystick_pressed = digitalRead(JOYSTICK_BUTTON_PIN) == LOW;
+}
+
+void control_lazer (scheduler & s, size_t, void * ptr) {
+  
+    digitalWrite(LAZER_PIN, joystick_pressed ? HIGH : LOW);
+}
+
 
 void loop() {
 	
 	scheduler s;
-	servo se(s,0,22,500U);
+	servo se(s,0,SERVO_PIN,1500U);
 	se.activate();
 	
-	direction d{500U,true,se};
-	s.create(1,20000,100,&sweep,&d);
+	direction d{1500U,true,se};
+ 
+  //s.create(1,20000,100,&sweep,&d);
+  s.create(1, 20000, 0, &check_joystick, NULL);
+	s.create(2, 20000, 100, &move_servo, &d);
+  s.create(3, 20000, 500, &control_lazer, NULL);
 	
 	for (;;) s();
 	
