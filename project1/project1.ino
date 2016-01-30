@@ -313,10 +313,13 @@ class serial : public scheduled_task {
 
 };
 
-#define LAZER_PIN 13
+#include <LiquidCrystal.h>
+
+#define LAZER_PIN 26
 #define SERVO_PIN 22
 #define JOYSTICK_BUTTON_PIN 24
-#define JOYSTICK_XAXIS_PIN A0
+#define JOYSTICK_XAXIS_PIN A8
+#define LIGHT_SENSOR_PIN A9
 
 #define JOYSTICK_PWM_SCALE_FACTOR -10
 #define JITTER_WIDTH_THRESHOLD 5
@@ -325,12 +328,26 @@ class serial : public scheduled_task {
 
 int joystick_x_value = 512;
 bool joystick_pressed = false;
+bool light_sensor_active = false;
+
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 
 void setup () {
 
 	pinMode(SERVO_PIN, OUTPUT);
 	pinMode(LAZER_PIN, OUTPUT);
 	pinMode(JOYSTICK_BUTTON_PIN, INPUT_PULLUP);
+	
+	// Initialize LCD screen to 16x2 characters
+	lcd.begin(16, 2);
+
+	// Display the label for the joystick
+	lcd.setCursor(0,0);
+	lcd.print("Joystick:");
+	
+	// Display the label for the light sensor
+	lcd.setCursor(0,1);
+	lcd.print("Light:");
 }
 
 
@@ -377,15 +394,39 @@ void move_servo (scheduler & s, size_t, void * ptr) {
 	d.servo.width(d.width);
 }
 
+void control_lazer (scheduler & s, size_t, void * ptr) {
+	
+	digitalWrite(LAZER_PIN, joystick_pressed ? HIGH : LOW);
+}
+
+void show_lcd (scheduler & s, size_t, void * ptr) {
+	
+	// Clear LCD
+	lcd.setCursor(10,0);
+	lcd.print("    ");
+	
+	// Print joystick value
+	lcd.setCursor(10,0);
+	lcd.print(joystick_x_value);
+	
+	// Clear LCD
+	lcd.setCursor(7,1);
+	lcd.print("   ");
+	
+	// Print light sensor value
+	lcd.setCursor(7,1);
+	lcd.print(light_sensor_active ? "On" : "Off");
+}
+
 void check_joystick (scheduler & s, size_t, void * ptr) {
 	
 	joystick_x_value = analogRead(JOYSTICK_XAXIS_PIN);
 	joystick_pressed = digitalRead(JOYSTICK_BUTTON_PIN) == LOW;
 }
 
-void control_lazer (scheduler & s, size_t, void * ptr) {
+void check_light_sensor (scheduler & s, size_t, void * ptr) {
 	
-    digitalWrite(LAZER_PIN, joystick_pressed ? HIGH : LOW);
+	light_sensor_active = analogRead(LIGHT_SENSOR_PIN) >= 800;
 }
 
 
@@ -399,8 +440,10 @@ void loop() {
 	
 	//s.create(1,20000,100,&sweep,&d);
 	s.create(1, 20000, 0, &check_joystick, NULL);
-	s.create(2, 20000, 100, &move_servo, &d);
-	s.create(3, 20000, 500, &control_lazer, NULL);
+	s.create(2, 20000, 100, &check_light_sensor, NULL);
+	s.create(3, 20000, 200, &control_lazer, NULL);
+	s.create(4, 20000, 300, &show_lcd, NULL);
+	s.create(5, 20000, 400, &move_servo, &d);
 	
 	for (;;) s();
 	
