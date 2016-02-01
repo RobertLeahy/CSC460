@@ -329,22 +329,23 @@ class serial_control : public serial {
 	
 		virtual void receive (unsigned char b) override {
 			
-			unsigned char servo_part=b&127U;
+			long servo_part=b&127U;
 			bool laser=(b&128U)!=0;
 			
-			Serial.print(static_cast<unsigned>(servo_part));
-			Serial.print(' ');
+			auto orig=se_.width();
 			
 			if (laser) digitalWrite(pin_,HIGH);
 			else digitalWrite(pin_,LOW);
 			
-			unsigned long width=2000;
-			width*=servo_part;
-			width/=128U;
-			width+=500U;
-			Serial.print(width);
-			Serial.print(' ');
-			se_.width(width);
+			servo_part-=64;
+			servo_part*=3;
+			servo_part/=4;
+			
+			unsigned long abs=(servo_part<0) ? (servo_part*-1) : servo_part;
+			auto curr_width=se_.width();
+			if ((curr_width<abs) && (servo_part<0)) servo_part=500;
+			
+			se_.width(curr_width+servo_part);
 			
 		}
 		
@@ -378,7 +379,7 @@ void setup () {
 void loop() {
 	
 	scheduler s;
-	servo se(s,0,22,500);
+	servo se(s,0,22);
 	se.activate();
 	serial_control sc(se,26,Serial1,s,1,10000);
 	sc.activate();
