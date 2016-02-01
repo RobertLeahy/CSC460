@@ -313,137 +313,75 @@ class serial : public scheduled_task {
 
 };
 
-#include <LiquidCrystal.h>
 
-#define LAZER_PIN 26
-#define SERVO_PIN 22
-#define JOYSTICK_BUTTON_PIN 24
-#define JOYSTICK_XAXIS_PIN A8
-#define LIGHT_SENSOR_PIN A9
-
-#define JOYSTICK_PWM_SCALE_FACTOR -10
-#define JITTER_WIDTH_THRESHOLD 5
-#define SERVO_WIDTH_MAX 2500
-#define SERVO_WIDTH_MIN 500
-
-int joystick_x_value = 512;
-bool joystick_pressed = false;
-bool light_sensor_active = false;
-
-LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
-
-void setup () {
-
-	pinMode(SERVO_PIN, OUTPUT);
-	pinMode(LAZER_PIN, OUTPUT);
-	pinMode(JOYSTICK_BUTTON_PIN, INPUT_PULLUP);
-	
-	// Initialize LCD screen to 16x2 characters
-	lcd.begin(16, 2);
-
-	// Display the label for the joystick
-	lcd.setCursor(0,0);
-	lcd.print("Joystick:");
-	
-	// Display the label for the light sensor
-	lcd.setCursor(0,1);
-	lcd.print("Light:");
-}
-
-
-struct direction {
+class serial_control : public serial {
 	
 	
-	unsigned long width;
-	bool up;
-	::servo & servo;
+	private:
+	
+	
+		servo & se_;
+		unsigned long pin_;
+		
+		
+	protected:
+	
+	
+		virtual void receive (unsigned char b) override {
+			
+			unsigned char servo_part=b&127U;
+			bool laser=(b&128U)!=0;
+			
+			Serial.print(static_cast<unsigned>(servo_part));
+			Serial.print(' ');
+			
+			if (laser) digitalWrite(pin_,HIGH);
+			else digitalWrite(pin_,LOW);
+			
+			unsigned long width=2000;
+			width*=servo_part;
+			width/=128U;
+			width+=500U;
+			Serial.print(width);
+			Serial.print(' ');
+			se_.width(width);
+			
+		}
+		
+		
+	public:
+	
+	
+		serial_control () = delete;
+		
+		
+		serial_control (servo & se, unsigned long pin, Stream & st, scheduler & s, size_t i, unsigned long delay=0, bool active=true)
+			:	serial(st,s,i,delay,active),
+				se_(se),
+				pin_(pin)
+		{	}
 	
 	
 };
 
 
-void sweep (scheduler & s, size_t, void * ptr) {
+void setup () {
 	
-	direction & d=*reinterpret_cast<direction *>(ptr);
+	pinMode(22,OUTPUT);
+	pinMode(26,OUTPUT);
+	Serial.begin(9600);
+	Serial1.begin(9600);
 	
-	if (d.width==SERVO_WIDTH_MAX) d.up=false;
-	else if (d.width==SERVO_WIDTH_MIN) d.up=true;
-	
-	if (d.up) d.width+=100;
-	else d.width-=100;
-	
-	d.servo.width(d.width);
-	
-}
-
-void move_servo (scheduler & s, size_t, void * ptr) {
-	
-	direction & d=*reinterpret_cast<direction *>(ptr);
-
-	// Convert raw joystick value to a PWM width
-	int delta_width = (joystick_x_value - 512) / JOYSTICK_PWM_SCALE_FACTOR;
-
-	// Set a width threshold to prevent jitter
-	if (delta_width > -JITTER_WIDTH_THRESHOLD && delta_width < JITTER_WIDTH_THRESHOLD) return;
-
-	// Prevent servo from moving past its max/min points
-	if (delta_width > 0 && d.width >= SERVO_WIDTH_MAX) return;
-	if (delta_width < 0 && d.width <= SERVO_WIDTH_MIN) return;
-
-	d.width += delta_width;
-	d.servo.width(d.width);
-}
-
-void control_lazer (scheduler & s, size_t, void * ptr) {
-	
-	digitalWrite(LAZER_PIN, joystick_pressed ? HIGH : LOW);
-}
-
-void show_lcd (scheduler & s, size_t, void * ptr) {
-	
-	// Clear LCD
-	lcd.setCursor(10,0);
-	lcd.print("    ");
-	
-	// Print joystick value
-	lcd.setCursor(10,0);
-	lcd.print(joystick_x_value);
-	
-	// Clear LCD
-	lcd.setCursor(7,1);
-	lcd.print("   ");
-	
-	// Print light sensor value
-	lcd.setCursor(7,1);
-	lcd.print(light_sensor_active ? "On" : "Off");
-}
-
-void check_joystick (scheduler & s, size_t, void * ptr) {
-	
-	joystick_x_value = analogRead(JOYSTICK_XAXIS_PIN);
-	joystick_pressed = digitalRead(JOYSTICK_BUTTON_PIN) == LOW;
-}
-
-void check_light_sensor (scheduler & s, size_t, void * ptr) {
-	
-	light_sensor_active = analogRead(LIGHT_SENSOR_PIN) >= 800;
 }
 
 
 void loop() {
 	
 	scheduler s;
-	servo se(s,0,SERVO_PIN,1500U);
+	servo se(s,0,22,500);
 	se.activate();
-	
-	direction d{1500U,true,se};
-	
-	//s.create(1,20000,100,&sweep,&d);
-	s.create(1, 20000, 0, &check_joystick, NULL);
-	s.create(2, 20000, 100, &check_light_sensor, NULL);
-	s.create(3, 20000, 200, &control_lazer, NULL);
-	s.create(4, 20000, 300, &show_lcd, NULL);
-	s.create(5, 20000, 400, &move_servo, &d);
+	serial_control sc(se,26,Serial1,s,1,10000);
+	sc.activate();
 	
 	for (;;) s();
 	
