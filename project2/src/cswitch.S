@@ -161,7 +161,7 @@ kswitch:
          * Now, we should select a new "current_thread".
          */
 kexit:
-        call Dispatch
+        call kdispatch
         /*
           * We are now ready to restore a new current_thread's context, i.e.,
           * switching the H/W stack pointer to this new current_thread->sp.
