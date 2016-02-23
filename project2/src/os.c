@@ -9,3 +9,10 @@ error_t * get_last_error (void) {
 	return &last_error;
 	
 }
+
+
+int thread_create (thread_t * thread, void (*f) (void *), priority_t prio, void * arg) {
+	
+	return kthread_create(thread,f,prio,arg);
+	
+}
