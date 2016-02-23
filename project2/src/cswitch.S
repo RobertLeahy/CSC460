@@ -23,6 +23,8 @@
 SREG  = 0x3F
 SPH    = 0x3E
 SPL    = 0x3D
+RAMPZ = 0x3B
+EIND = 0x3C
 
 /*
   * MACROS
@@ -68,11 +70,19 @@ SPL    = 0x3D
 	push	r31
 	in	r16, SREG
 	push	r16
+	in	r16, RAMPZ
+	push	r16
+	in	r16, EIND
+	push	r16
 .endm
 ;
 ; Pop all registers and the status registers
 ;
 .macro	RESTORECTX
+	pop	r16
+	out	EIND,r16
+	pop	r16
+	out	RAMPZ,r16
 	pop	r16
 	out	SREG,r16
 	pop	r31
