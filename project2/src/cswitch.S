@@ -120,62 +120,61 @@ EIND = 0x3C
 .endm
 
         .section .text
-        .global CSwitch
-        .global Exit_Kernel
-        .extern Dispatch
-        .extern CurrentP     /* CurrentP->sp is the first entry in CurrentP's descriptor  */
+        .global kswitch
+        .global kexit
+        .extern kdispatch
+        .extern current_thread     /* current_thread->sp is the first entry in current_thread's descriptor  */
 /*
-  * The actual CSwitch() code begins here.
+  * The actual kswitch() code begins here.
   *
   * This function is called by a user task. Upon entry, we are using
-  * the CurrentP's stack, on top of which contains the return address 
-  * of the call to CSwitch(). There are three phases in this function:
-  *   1) save current CurrentP's context, and then its H/W stack pointer;
-  *   2) choose a new CurrentP;
-  *   3) restore the new CurrentP's context, i.e., restore its H/W stack pointer.
+  * the current_thread's stack, on top of which contains the return address 
+  * of the call to kswitch(). There are three phases in this function:
+  *   1) save current current_thread's context, and then its H/W stack pointer;
+  *   2) choose a new current_thread;
+  *   3) restore the new current_thread's context, i.e., restore its H/W stack pointer.
   * 
   * Assumption: This function is executed with interrupts already disabled.
   *
   * Note: AVR devices use LITTLE endian format, i.e., a 16-bit value starts
   * with the lower-order byte first, then the higher-order byte.
   *
-  * void CSwitch();
-  * void Exit_Kernel(); 
+  * void kswitch();
+  * void kexit(); 
   */
-CSwitch:
+kswitch:
         /* 
           * Assume I = 0, i.e., all interrupts are disabled.
           */
         SAVECTX
         /* 
-          * Now, we have saved the CurrentP's context.
-          * Save the current H/W stack pointer into CurrentP->sp.
+          * Now, we have saved the current_thread's context.
+          * Save the current H/W stack pointer into current_thread->sp.
           */
-        lds  r30, CurrentP
-        lds  r31, CurrentP+1   /* Z = (R31,R30) contains the "sp" */
+        lds  r30, current_thread
+        lds  r31, current_thread+1   /* Z = (R31,R30) contains the "sp" */
         in   r28, SPL
         in   r29, SPH
         st   Z+, r28       /* store (R28=SPL,R29=SPH) indirectly via Z */
-        st   Z+, r29       /* Now, CurrentP->sp = the current H/W stack pointer */
+        st   Z+, r29       /* Now, current_thread->sp = the current H/W stack pointer */
        /*
-         * Now, we should select a new "CurrentP".
+         * Now, we should select a new "current_thread".
          */
-Exit_Kernel:
+kexit:
         call Dispatch
         /*
-          * We are now ready to restore a new CurrentP's context, i.e.,
-          * switching the H/W stack pointer to this new CurrentP->sp.
+          * We are now ready to restore a new current_thread's context, i.e.,
+          * switching the H/W stack pointer to this new current_thread->sp.
           */ 
-        lds  r30, CurrentP
-        lds  r31, CurrentP+1  /* Z = (R31,R30) contains the new "sp" */
+        lds  r30, current_thread
+        lds  r31, current_thread+1  /* Z = (R31,R30) contains the new "sp" */
         ld   r28, Z+
         ld   r29, Z+
         out  SPL, r28
-        out  SPH, r29   /* Now, H/W stack pointer = CurrentP->sp */
+        out  SPH, r29   /* Now, H/W stack pointer = current_thread->sp */
         /*
-          * We are now executing in our new CurrentP's stack.
-          * Note: at the bottom of the CurrentP's context is its return address.
+          * We are now executing in our new current_thread's stack.
+          * Note: at the bottom of the current_thread's context is its return address.
           */
         RESTORECTX
         ret    /* don't use rti to re-enable interrupts */
-/* end of CSwitch() */
