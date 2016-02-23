@@ -1,0 +1,1 @@
+avrdude "-CC:\Program Files (x86)\Arduino\hardware\tools\avr/etc/avrdude.conf" -v -patmega2560 -cwiring -PCOM3 -b115200 -D -Uflash:w:bin/img.hex:i

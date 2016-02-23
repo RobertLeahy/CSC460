@@ -77,4 +77,22 @@ obj/cswitch.o: src/cswitch.S
 OBJS:=\
 obj/cswitch.o \
 obj/kernel.o \
+obj/main.o \
 obj/os.o
+
+
+all: bin/img.elf
+bin/img.elf: \
+$(OBJS) | \
+bin
+	$(GCC) -Wl,--gc-sections,--relax -o $@ $^
+
+
+all: bin/img.eep
+bin/img.eep: bin/img.elf | bin
+	avr-objcopy -O ihex -j .eeprom --set-section-flags=.eeprom=alloc,load --no-change-warnings --change-section-lma .eeprom=0 $^ $@
+
+
+all: bin/img.hex
+bin/img.hex: bin/img.elf | bin
+	avr-objcopy -O ihex -R .eeprom $^ $@
