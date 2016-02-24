@@ -85,7 +85,7 @@ int kinit (void) {
 }
 
 
-void kdispatch (void) {
+static void kdispatch (void) {
 	
 	//	This implements simple round robin scheduling:
 	//	The next non-NULL entry in the queue becomes the
