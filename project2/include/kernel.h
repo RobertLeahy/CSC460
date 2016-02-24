@@ -101,4 +101,4 @@ extern error_t last_error;
  *	\return
  *		0 if the syscall succeeded, -1 otherwise.
  */
-int syscall (enum syscall num, unsigned char * args, size_t len);
+int syscall (enum syscall num, void * args, size_t len);

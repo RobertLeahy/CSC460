@@ -29,10 +29,9 @@ error_t last_error;
 void * ksp;
 
 
-#define SYSCALL_MAX_ARGS (32U)
 static struct {
 	enum syscall num;
-	unsigned char args [SYSCALL_MAX_ARGS];
+	void * args;
 	size_t len;
 } syscall_state;
 
@@ -185,7 +184,7 @@ static int kinit (void) {
 }
 
 
-#define SYSCALL_POP(var,buffer,i) do { memcpy(&(var),&(buffer)[i],sizeof((var)));i+=sizeof((var)); } while (0)
+#define SYSCALL_POP(var,buffer,i) do { memcpy(&(var),((unsigned char *)(buffer))+i,sizeof((var)));i+=sizeof((var)); } while (0)
 
 
 static int kstart (void) {
@@ -260,16 +259,9 @@ int main (void) {
 }
 
 
-int syscall (enum syscall num, unsigned char * args, size_t len) {
+int syscall (enum syscall num, void * args, size_t len) {
 	
-	if (len>SYSCALL_MAX_ARGS) {
-		
-		errno=EINVAL;
-		return -1;
-		
-	}
-	
-	memcpy(syscall_state.args,args,len);
+	syscall_state.args=args;
 	syscall_state.num=num;
 	syscall_state.len=len;
 	kenter();
