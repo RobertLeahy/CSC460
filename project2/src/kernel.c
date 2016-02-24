@@ -239,6 +239,22 @@ static int kinit (void) {
 }
 
 
+static void kthread_set_priority (thread_t thread, priority_t prio) {
+	
+	//	The idle thread is always thread zero
+	if ((thread>MAX_THREADS) || (thread==0) || (threads[thread].state==DEAD)) {
+		
+		if (current_thread) current_thread->last_error=EINVAL;
+		return;
+		
+	}
+	
+	threads[thread].priority=prio;
+	if (current_thread) current_thread->last_error=ENONE;
+	
+}
+
+
 #define SYSCALL_POP(var,buffer,i) do { memcpy(&(var),((unsigned char *)(buffer))+i,sizeof((var)));i+=sizeof((var)); } while (0)
 
 
@@ -256,12 +272,7 @@ static int kstart (void) {
 				
 			case SYSCALL_THREAD_CREATE:{
 				
-				if (syscall_state.len!=(sizeof(thread_t *)+sizeof(void (*) (void *))+sizeof(priority_t)+sizeof(void *))) {
-					
-					current_thread->last_error=EINVAL;
-					break;
-					
-				}
+				if (syscall_state.len!=(sizeof(thread_t *)+sizeof(void (*) (void *))+sizeof(priority_t)+sizeof(void *))) goto invalid_length;
 				
 				size_t i=0;
 				thread_t * thread;
@@ -277,11 +288,42 @@ static int kstart (void) {
 				
 			}break;
 			
+			case SYSCALL_THREAD_SELF:{
+				
+				if (syscall_state.len!=sizeof(thread_t *)) goto invalid_length;
+				
+				size_t i=0;
+				thread_t * retr;
+				SYSCALL_POP(retr,syscall_state.args,i);
+				struct kthread * begin=threads;
+				*retr=(size_t)(current_thread-begin);
+				
+			}break;
+			
+			case SYSCALL_THREAD_SET_PRIORITY:{
+				
+				if (syscall_state.len!=(sizeof(thread_t)+sizeof(priority_t))) goto invalid_length;
+				
+				size_t i=0;
+				thread_t thread;
+				SYSCALL_POP(thread,syscall_state.args,i);
+				priority_t prio;
+				SYSCALL_POP(prio,syscall_state.args,i);
+				
+				kthread_set_priority(thread,prio);
+				
+			}break;
+			
 			default:
 				current_thread->last_error=EINVAL;
 				break;
 			
 		}
+		
+		continue;
+		
+		invalid_length:
+		current_thread->last_error=EINVAL;
 		
 	}
 	

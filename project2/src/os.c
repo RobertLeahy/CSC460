@@ -30,6 +30,33 @@ int thread_create (thread_t * thread, void (*f) (void *), priority_t prio, void 
 }
 
 
+thread_t thread_self (void) {
+	
+	thread_t retr;
+	thread_t * ptr=&retr;
+	unsigned char buffer [sizeof(thread_t *)];
+	size_t i=0;
+	SYSCALL_PUSH(ptr,buffer,i);
+	
+	syscall(SYSCALL_THREAD_SELF,buffer,sizeof(buffer));
+	
+	return retr;
+	
+}
+
+
+int thread_set_priority (thread_t thread, priority_t prio) {
+	
+	unsigned char buffer [sizeof(thread)+sizeof(prio)];
+	size_t i=0;
+	SYSCALL_PUSH(thread,buffer,i);
+	SYSCALL_PUSH(prio,buffer,i);
+	
+	return syscall(SYSCALL_THREAD_SET_PRIORITY,buffer,sizeof(buffer));
+	
+}
+
+
 void yield (void) {
 	
 	syscall(SYSCALL_YIELD,0,0);

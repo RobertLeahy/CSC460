@@ -69,6 +69,26 @@ error_t * get_last_error (void);
  *		0 if this call succeeds, -1 otherwise.
  */
 int thread_create (thread_t * thread, void (*f) (void *), priority_t prio, void * arg);
+/**
+ *	Retrieves a handle for the currently executing
+ *	thread.
+ *
+ *	\return
+ *		A handle for the currently executing thread.
+ */
+thread_t thread_self (void);
+/**
+ *	Sets the priority of a particuler thread.
+ *
+ *	\param [in] thread
+ *		A handle to the thread-in-question.
+ *	\param [in] prio
+ *		The new priority of \em thread.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int thread_set_priority (thread_t thread, priority_t prio);
 
 
 /**

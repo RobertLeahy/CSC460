@@ -24,7 +24,8 @@ void rtos_main (void) {
 	
 	DDRB|=1<<PB7;
 	
-	thread_create(0,ping,0,0);
+	thread_set_priority(thread_self(),14);
+	thread_create(0,ping,14,0);
 	pong(0);
 	
 }
