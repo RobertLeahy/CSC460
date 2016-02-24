@@ -126,9 +126,13 @@ static void kthread_start (void) {
 	//	threads
 	enable_interrupt();
 	
+	//	Run the thread
 	current_thread->start_routine(current_thread->arg);
 	
-	//	TODO: Terminate
+	//	Terminate the thread
+	disable_interrupt();
+	current_thread->state=DEAD;
+	kenter();
 	
 }
 
