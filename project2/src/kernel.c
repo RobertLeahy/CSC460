@@ -1,3 +1,5 @@
+#include <avr/interrupt.h>
+#include <avr/io.h>
 #include <kernel.h>
 #include <os.h>
 #include <stddef.h>
@@ -56,6 +58,36 @@ static void kidle (void * arg) {
 static int klast_error_init (void) {
 	
 	last_error=ENONE;
+	
+	return 0;
+	
+}
+
+
+//	Sets up timer for scheduling
+static int ktimer_init (void) {
+	
+	TCCR1A=0;
+	TCCR1B=0;
+	TCNT1=0;
+	
+	#ifdef LARGE_QUANTUM
+	OCR1A=15624;
+	#else
+	OCR1A=624;
+	#endif
+	
+	TCCR1B|=(1<<WGM12);
+	
+	TCCR1B|=(1<<CS12);
+	TCCR1B&=~(1<<CS11);
+	#ifdef LARGE_QUANTUM
+	TCCR1B|=(1<<CS10);
+	#else
+	TCCR1B&=~(1<<CS10);
+	#endif
+	
+	TIMSK1|=(1<<OCIE1A);
 	
 	return 0;
 	
@@ -170,13 +202,14 @@ static void kdispatch (void) {
 
 static int kinit (void) {
 	
+	//	Interrupts disabled while in kernel
+	disable_interrupt();
+	
 	if (
 		(kthread_init()!=0) ||
-		(klast_error_init()!=0)
+		(klast_error_init()!=0) ||
+		(ktimer_init()!=0)
 	) return -1;
-	
-	//	Interrupts disabled while in the kernel
-	disable_interrupt();
 	
 	return 0;
 	
@@ -265,5 +298,13 @@ int syscall (enum syscall num, void * args, size_t len) {
 	kenter();
 	
 	return (errno==ENONE) ? 0 : -1;
+	
+}
+
+
+ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
+	
+	syscall_state.num=SYSCALL_YIELD;
+	kenter();
 	
 }

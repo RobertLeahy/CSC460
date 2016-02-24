@@ -6,17 +6,7 @@ static void pong (void * arg) {
 	
 	(void)arg;
 	
-	for (;;) {
-		
-		PORTB|=1<<PB7;
-		
-		for (unsigned int i=0;i<32000;++i) asm volatile ("nop"::);
-		for (unsigned int i=0;i<32000;++i) asm volatile ("nop"::);
-		for (unsigned int i=0;i<32000;++i) asm volatile ("nop"::);
-		
-		yield();
-		
-	}
+	for (;;) PORTB|=1<<PB7;
 	
 }
 
@@ -25,17 +15,7 @@ static void ping (void * arg) {
 	
 	(void)arg;
 	
-	for (;;) {
-		
-		PORTB&=~(1<<PB7);
-		
-		for (unsigned int i=0;i<32000;++i) asm volatile ("nop"::);
-		for (unsigned int i=0;i<32000;++i) asm volatile ("nop"::);
-		for (unsigned int i=0;i<32000;++i) asm volatile ("nop"::);
-		
-		yield();
-		
-	}
+	for (;;) PORTB&=~(1<<PB7);
 	
 }
 
