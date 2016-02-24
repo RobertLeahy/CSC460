@@ -71,6 +71,10 @@ struct kthread {
 	 *	on this thread.
 	 */
 	error_t last_error;
+	/**
+	 *	Indicates the priority of this thread.
+	 */
+	priority_t priority;
 	
 };
 

@@ -81,9 +81,6 @@ static void kthread_start (void) {
 
 static void kthread_create (thread_t * thread, void (*f) (void *), priority_t prio, void * arg) {
 	
-	//	TODO: Use this
-	(void)prio;
-	
 	//	Find an available thread control block
 	thread_t avail;
 	for (avail=0;avail<MAX_THREADS;++avail) if (threads[avail].state==DEAD) break;
@@ -103,6 +100,7 @@ static void kthread_create (thread_t * thread, void (*f) (void *), priority_t pr
 	t->state=READY;
 	t->start_routine=f;
 	t->arg=arg;
+	t->priority=prio;
 	
 	//	Setup thread's stack with return
 	//	address and values to pop for registers
@@ -251,8 +249,7 @@ int main (void) {
 	kinit();
 	
 	thread_t m;
-	//	TODO: Adjust priority
-	kthread_create(&m,main_thread,0,0);
+	kthread_create(&m,main_thread,IDLE_PRIO+1U,0);
 	
 	kstart();
 	
