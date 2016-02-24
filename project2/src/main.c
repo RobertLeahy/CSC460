@@ -46,7 +46,6 @@ void rtos_main (void) {
 	
 	thread_t pi;
 	thread_create(&pi,ping,0,0);
-	thread_t po;
-	thread_create(&po,pong,0,0);
+	pong(0);
 	
 }
