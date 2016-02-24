@@ -4,7 +4,7 @@
 #include <string.h>
 
 
-#define SYSCALL_PUSH(var,buffer,i) do { memcpy(&(buffer)[i],&(var),sizeof((var)));i+=sizeof((var)); } while (0)
+#define SYSCALL_PUSH(var,buffer,i) do { memcpy(((unsigned char *)(buffer))+i,&(var),sizeof((var)));i+=sizeof((var)); } while (0)
 
 
 error_t * get_last_error (void) {
