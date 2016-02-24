@@ -87,4 +87,18 @@ extern struct kthread * current_thread;
 extern error_t last_error;
 
 
+/**
+ *	Performs a syscall.
+ *
+ *	\param [in] num
+ *		The syscall to perform.
+ *	\param [in] args
+ *		A pointer to a buffer which contains the
+ *		arguments to the syscall.
+ *	\param [in] len
+ *		The length of \em args in bytes.
+ *
+ *	\return
+ *		0 if the syscall succeeded, -1 otherwise.
+ */
 int syscall (enum syscall num, unsigned char * args, size_t len);
