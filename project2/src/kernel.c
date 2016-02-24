@@ -122,6 +122,10 @@ int kstart (void) {
 
 static void kthread_start (void) {
 	
+	//	Interrupts are enabled in non-kernel
+	//	threads
+	enable_interrupt();
+	
 	current_thread->start_routine(current_thread->arg);
 	
 	//	TODO: Terminate
