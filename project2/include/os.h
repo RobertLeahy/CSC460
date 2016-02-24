@@ -34,7 +34,8 @@ typedef unsigned int tick_t;
  */
 typedef enum {
 	ENONE=0,
-	EAGAIN
+	EAGAIN,
+	EINVAL
 } error_t;
 error_t * get_last_error (void);
 /**
@@ -63,3 +64,10 @@ error_t * get_last_error (void);
  *		0 if this call succeeds, -1 otherwise.
  */
 int thread_create (thread_t * thread, void (*f) (void *), priority_t prio, void * arg);
+
+
+/**
+ *	Yields control of the CPU back to the kernel for
+ *	rescheduling.
+ */
+void yield (void);

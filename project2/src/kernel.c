@@ -28,6 +28,14 @@ error_t last_error;
 void * ksp;
 
 
+#define SYSCALL_MAX_ARGS (32U)
+static struct {
+	enum syscall num;
+	unsigned char args [SYSCALL_MAX_ARGS];
+	unsigned int len;
+} syscall_state;
+
+
 //	These are provided in assembly
 void kenter (void);
 void kexit (void);
@@ -39,23 +47,7 @@ static void kidle (void * arg) {
 	(void)arg;
 	
 	//	Continually yield
-	for (;;) kyield();
-	
-}
-
-
-//	Initializes threading
-static int kthread_init (void) {
-	
-	memset(threads,0,sizeof(threads));
-	memset(thread_queue,0,sizeof(thread_queue));
-	current_thread=0;
-	
-	//	Start idle task
-	thread_t ignored;
-	if (kthread_create(&ignored,kidle,IDLE_PRIO,0)!=0) return -1;
-	
-	return 0;
+	for (;;) yield();
 	
 }
 
@@ -66,80 +58,6 @@ static int klast_error_init (void) {
 	last_error=ENONE;
 	
 	return 0;
-	
-}
-
-
-static int kinit (void) {
-	
-	if (
-		(kthread_init()!=0) ||
-		(klast_error_init()!=0)
-	) return -1;
-	
-	//	Interrupts disabled while in the kernel
-	disable_interrupt();
-	
-	return 0;
-	
-}
-
-
-static void kdispatch (void) {
-	
-	//	This implements simple round robin scheduling:
-	//	The next non-NULL entry in the queue becomes the
-	//	current task and is put back on the end
-	
-	struct kthread * next;
-	do {
-		
-		next=thread_queue[0];
-		memmove(thread_queue,&thread_queue[1],sizeof(thread_queue)-sizeof(struct kthread *));
-		thread_queue[MAX_THREADS-1U]=next;
-		
-	} while (!next || (next->state==DEAD));
-	
-	current_thread=next;
-	
-}
-
-
-static int kstart (void) {
-	
-	for (;;) {
-		
-		kdispatch();
-		
-		kexit();
-		
-	}
-	
-	return 0;
-	
-}
-
-
-void rtos_main (void);
-
-
-static void main_thread (void * arg) {
-	
-	(void)arg;
-	rtos_main();
-	
-}
-
-
-int main (void) {
-	
-	kinit();
-	
-	thread_t m;
-	//	TODO: Adjust priority
-	kthread_create(&m,main_thread,0,0);
-	
-	kstart();
 	
 }
 
@@ -161,7 +79,7 @@ static void kthread_start (void) {
 }
 
 
-int kthread_create (thread_t * thread, void (*f) (void *), priority_t prio, void * arg) {
+static void kthread_create (thread_t * thread, void (*f) (void *), priority_t prio, void * arg) {
 	
 	//	TODO: Use this
 	(void)prio;
@@ -174,8 +92,8 @@ int kthread_create (thread_t * thread, void (*f) (void *), priority_t prio, void
 	//	are MAX_THREADS threads running
 	if (avail==MAX_THREADS) {
 		
-		errno=EAGAIN;
-		return -1;
+		if (current_thread) current_thread->last_error=EAGAIN;
+		return;
 		
 	}
 	
@@ -210,14 +128,147 @@ int kthread_create (thread_t * thread, void (*f) (void *), priority_t prio, void
 	
 	//	Return values to caller
 	*thread=avail;
-	errno=ENONE;
+	if (current_thread) current_thread->last_error=ENONE;
+	
+}
+
+
+//	Initializes threading
+static int kthread_init (void) {
+	
+	memset(threads,0,sizeof(threads));
+	memset(thread_queue,0,sizeof(thread_queue));
+	current_thread=0;
+	
+	//	Start idle task
+	thread_t ignored;
+	kthread_create(&ignored,kidle,IDLE_PRIO,0);
+	
 	return 0;
 	
 }
 
 
-void kyield (void) {
+static void kdispatch (void) {
 	
+	//	This implements simple round robin scheduling:
+	//	The next non-NULL entry in the queue becomes the
+	//	current task and is put back on the end
+	
+	struct kthread * next;
+	do {
+		
+		next=thread_queue[0];
+		memmove(thread_queue,&thread_queue[1],sizeof(thread_queue)-sizeof(struct kthread *));
+		thread_queue[MAX_THREADS-1U]=next;
+		
+	} while (!next || (next->state==DEAD));
+	
+	current_thread=next;
+	
+}
+
+
+static int kinit (void) {
+	
+	if (
+		(kthread_init()!=0) ||
+		(klast_error_init()!=0)
+	) return -1;
+	
+	//	Interrupts disabled while in the kernel
+	disable_interrupt();
+	
+	return 0;
+	
+}
+
+
+static int kstart (void) {
+	
+	for (;;) {
+		
+		kdispatch();
+		kexit();
+		
+		switch (syscall_state.num) {
+			
+			case SYSCALL_YIELD:
+				break;
+				
+			case SYSCALL_THREAD_CREATE:{
+				
+				if (syscall_state.len!=(sizeof(thread_t *)+sizeof(void (*) (void *))+sizeof(priority_t)+sizeof(void *))) {
+					
+					current_thread->last_error=EINVAL;
+					break;
+					
+				}
+				
+				thread_t * thread;
+				memcpy(&thread,syscall_state.args,sizeof(thread));
+				void (*f) (void *);
+				memcpy(&f,&syscall_state.args[sizeof(thread)],sizeof(f));
+				priority_t prio;
+				memcpy(&prio,&syscall_state.args[sizeof(thread)+sizeof(f)],sizeof(prio));
+				void * arg;
+				memcpy(&arg,&syscall_state.args[sizeof(thread)+sizeof(f)+sizeof(prio)],sizeof(arg));
+				
+				kthread_create(thread,f,prio,arg);
+				
+			}break;
+			
+			default:
+				current_thread->last_error=EINVAL;
+				break;
+			
+		}
+		
+	}
+	
+	return 0;
+	
+}
+
+
+void rtos_main (void);
+
+
+static void main_thread (void * arg) {
+	
+	(void)arg;
+	rtos_main();
+	
+}
+
+
+int main (void) {
+	
+	kinit();
+	
+	thread_t m;
+	//	TODO: Adjust priority
+	kthread_create(&m,main_thread,0,0);
+	
+	kstart();
+	
+}
+
+
+int syscall (enum syscall num, unsigned char * args, unsigned int len) {
+	
+	if (len>SYSCALL_MAX_ARGS) {
+		
+		errno=EINVAL;
+		return -1;
+		
+	}
+	
+	memcpy(syscall_state.args,args,len);
+	syscall_state.num=num;
+	syscall_state.len=len;
 	kenter();
+	
+	return (errno==ENONE) ? 0 : -1;
 	
 }

@@ -15,7 +15,7 @@ static void pong (void * arg) {
 		for (unsigned int i=0;i<32000;++i) asm volatile ("nop"::);
 		for (unsigned int i=0;i<32000;++i) asm volatile ("nop"::);
 		
-		kyield();
+		yield();
 		
 	}
 	
@@ -34,7 +34,7 @@ static void ping (void * arg) {
 		for (unsigned int i=0;i<32000;++i) asm volatile ("nop"::);
 		for (unsigned int i=0;i<32000;++i) asm volatile ("nop"::);
 		
-		kyield();
+		yield();
 		
 	}
 	

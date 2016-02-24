@@ -28,6 +28,14 @@ enum thread_state {
 };
 
 
+enum syscall {
+	
+	SYSCALL_YIELD,
+	SYSCALL_THREAD_CREATE
+	
+};
+
+
 /**
  *	Represents a thread.
  */
@@ -75,5 +83,4 @@ extern struct kthread * current_thread;
 extern error_t last_error;
 
 
-int kthread_create (thread_t * thread, void (*f) (void *), priority_t prio, void * arg);
-void kyield (void);
+int syscall (enum syscall num, unsigned char * args, unsigned int len);
