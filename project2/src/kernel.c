@@ -106,8 +106,7 @@ static void kthread_start (void) {
 	//	Terminate the thread
 	disable_interrupt();
 	current_thread->state=DEAD;
-	syscall_state.num=SYSCALL_YIELD;
-	kenter();
+	syscall(SYSCALL_YIELD,0,0);
 	
 }
 
@@ -304,7 +303,6 @@ int syscall (enum syscall num, void * args, size_t len) {
 
 ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
 	
-	syscall_state.num=SYSCALL_YIELD;
-	kenter();
+	syscall(SYSCALL_YIELD,0,0);
 	
 }
