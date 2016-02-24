@@ -185,6 +185,9 @@ static int kinit (void) {
 }
 
 
+#define SYSCALL_POP(var,buffer,i) do { memcpy(&(var),&(buffer)[i],sizeof((var)));i+=sizeof((var)); } while (0)
+
+
 static int kstart (void) {
 	
 	for (;;) {
@@ -206,14 +209,15 @@ static int kstart (void) {
 					
 				}
 				
+				size_t i=0;
 				thread_t * thread;
-				memcpy(&thread,syscall_state.args,sizeof(thread));
+				SYSCALL_POP(thread,syscall_state.args,i);
 				void (*f) (void *);
-				memcpy(&f,&syscall_state.args[sizeof(thread)],sizeof(f));
+				SYSCALL_POP(f,syscall_state.args,i);
 				priority_t prio;
-				memcpy(&prio,&syscall_state.args[sizeof(thread)+sizeof(f)],sizeof(prio));
+				SYSCALL_POP(prio,syscall_state.args,i);
 				void * arg;
-				memcpy(&arg,&syscall_state.args[sizeof(thread)+sizeof(f)+sizeof(prio)],sizeof(arg));
+				SYSCALL_POP(arg,syscall_state.args,i);
 				
 				kthread_create(thread,f,prio,arg);
 				
