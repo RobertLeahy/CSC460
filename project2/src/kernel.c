@@ -50,8 +50,8 @@ static void kidle (void * arg) {
 	//	Unused: Always NULL
 	(void)arg;
 	
-	//	Continually yield
-	for (;;) yield();
+	//	Put the CPU to sleep
+	for (;;) asm volatile ("sleep"::);
 	
 }
 
