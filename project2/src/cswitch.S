@@ -1,40 +1,10 @@
-/*
- * Compile using:
- *   avr-gcc -c -O2 -mmcu=${CPU} -Wa,--gstabs -o switch.o switch.S
- */
-
-/*
-  * Note:
-  *
-  * This code is based on "thread_swtch.S" by Brian S. Dean, and the
-  * "os_cpu_a.asm" of uC/OS-II AVR Specific code by Ole Saether. 
-  * They are adapted to match our need of a "full-served" kernel model.
-  *
-  *  Author:  Dr. Mantis Cheng, 2 October 2006
-  *
-  *  ChangeLog: Modified by Alexander M. Hoole, October 2006.
-  *
-  *  !!!!!   This code has NEVER been tested.  !!!!!
-  *  !!!!!   Use at your own risk  !!!!
-  */
+SREG=0x3F
+SPH=0x3E
+SPL=0x3D
+RAMPZ=0x3B
+EIND=0x3C
 
 
-/* locations of well-known registers */
-SREG  = 0x3F
-SPH    = 0x3E
-SPL    = 0x3D
-RAMPZ = 0x3B
-EIND = 0x3C
-
-/*
-  * MACROS
-  */
-;
-; Push all registers and then the status register.
-; It is important to keep the order of SAVECTX and RESTORECTX  exactly
-; in reverse. Also, when a new process is created, it is important to 
-; initialize its "initial" context in the same order as SAVECTX.
-;	
 .macro	SAVECTX
 	push	r0
 	push	r1
@@ -75,9 +45,7 @@ EIND = 0x3C
 	in	r16, EIND
 	push	r16
 .endm
-;
-; Pop all registers and the status registers
-;
+
 .macro	RESTORECTX
 	pop	r16
 	out	EIND,r16
@@ -119,62 +87,40 @@ EIND = 0x3C
 	pop	r0
 .endm
 
-        .section .text
-        .global kswitch
-        .global kexit
-        .extern kdispatch
-        .extern current_thread     /* current_thread->sp is the first entry in current_thread's descriptor  */
-/*
-  * The actual kswitch() code begins here.
-  *
-  * This function is called by a user task. Upon entry, we are using
-  * the current_thread's stack, on top of which contains the return address 
-  * of the call to kswitch(). There are three phases in this function:
-  *   1) save current current_thread's context, and then its H/W stack pointer;
-  *   2) choose a new current_thread;
-  *   3) restore the new current_thread's context, i.e., restore its H/W stack pointer.
-  * 
-  * Assumption: This function is executed with interrupts already disabled.
-  *
-  * Note: AVR devices use LITTLE endian format, i.e., a 16-bit value starts
-  * with the lower-order byte first, then the higher-order byte.
-  *
-  * void kswitch();
-  * void kexit(); 
-  */
+.macro CURRENTSP
+	lds	r30, current_thread
+	lds	r31, current_thread+1
+.endm
+
+.macro SAVESP
+	in	r28, SPL
+	in	r29, SPH
+	st	Z+, r28
+	st	Z+, r29
+.endm
+
+.macro RESTORESP
+	ld	r28, Z+
+	ld	r29, Z+
+	out	SPL, r28
+	out	SPH, r29
+.endm
+
+
+	.section .text
+	.global kswitch
+	.global kexit
+	.extern kdispatch
+	.extern current_thread
+
+
 kswitch:
-        /* 
-          * Assume I = 0, i.e., all interrupts are disabled.
-          */
-        SAVECTX
-        /* 
-          * Now, we have saved the current_thread's context.
-          * Save the current H/W stack pointer into current_thread->sp.
-          */
-        lds  r30, current_thread
-        lds  r31, current_thread+1   /* Z = (R31,R30) contains the "sp" */
-        in   r28, SPL
-        in   r29, SPH
-        st   Z+, r28       /* store (R28=SPL,R29=SPH) indirectly via Z */
-        st   Z+, r29       /* Now, current_thread->sp = the current H/W stack pointer */
-       /*
-         * Now, we should select a new "current_thread".
-         */
+	SAVECTX
+	CURRENTSP
+	SAVESP
 kexit:
-        call kdispatch
-        /*
-          * We are now ready to restore a new current_thread's context, i.e.,
-          * switching the H/W stack pointer to this new current_thread->sp.
-          */ 
-        lds  r30, current_thread
-        lds  r31, current_thread+1  /* Z = (R31,R30) contains the new "sp" */
-        ld   r28, Z+
-        ld   r29, Z+
-        out  SPL, r28
-        out  SPH, r29   /* Now, H/W stack pointer = current_thread->sp */
-        /*
-          * We are now executing in our new current_thread's stack.
-          * Note: at the bottom of the current_thread's context is its return address.
-          */
-        RESTORECTX
-        ret    /* don't use rti to re-enable interrupts */
+	call kdispatch
+	CURRENTSP
+	RESTORESP
+	RESTORECTX
+	ret
