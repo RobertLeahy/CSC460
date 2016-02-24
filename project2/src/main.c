@@ -43,6 +43,8 @@ static void ping (void * arg) {
 
 int main (void) {
 	
+	kinit();
+	
 	DDRB|=1<<PB7;
 	
 	thread_t pi;
