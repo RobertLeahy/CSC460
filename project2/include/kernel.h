@@ -29,6 +29,9 @@ enum thread_state {
 };
 
 
+/**
+ *	An enumeration of valid syscalls.
+ */
 enum syscall {
 	
 	SYSCALL_YIELD,
