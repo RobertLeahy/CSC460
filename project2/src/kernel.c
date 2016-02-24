@@ -74,6 +74,7 @@ static void kthread_start (void) {
 	//	Terminate the thread
 	disable_interrupt();
 	current_thread->state=DEAD;
+	syscall_state.num=SYSCALL_YIELD;
 	kenter();
 	
 }
