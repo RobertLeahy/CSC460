@@ -7,6 +7,7 @@
 
 
 #include <os.h>
+#include <stddef.h>
 
 
 /**
@@ -83,4 +84,4 @@ extern struct kthread * current_thread;
 extern error_t last_error;
 
 
-int syscall (enum syscall num, unsigned char * args, unsigned int len);
+int syscall (enum syscall num, unsigned char * args, size_t len);

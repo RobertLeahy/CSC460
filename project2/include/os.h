@@ -6,14 +6,17 @@
 #pragma once
 
 
+#include <stddef.h>
+
+
 /**
  *	The type of a handle to a thread.
  */
-typedef unsigned int thread_t;
+typedef size_t thread_t;
 /**
  *	The type of a mutex.
  */
-typedef unsigned int mutex_t;
+typedef size_t mutex_t;
 /**
  *	An integer type which represents a thread's
  *	priority.
@@ -22,7 +25,7 @@ typedef unsigned char priority_t;
 /**
  *	The type of an event.
  */
-typedef unsigned int event_t;
+typedef size_t event_t;
 /**
  *	An integer type which represents ticks.
  */

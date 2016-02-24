@@ -1,5 +1,6 @@
 #include <kernel.h>
 #include <os.h>
+#include <stddef.h>
 #include <string.h>
 
 
@@ -32,7 +33,7 @@ void * ksp;
 static struct {
 	enum syscall num;
 	unsigned char args [SYSCALL_MAX_ARGS];
-	unsigned int len;
+	size_t len;
 } syscall_state;
 
 
@@ -118,7 +119,7 @@ static void kthread_create (thread_t * thread, void (*f) (void *), priority_t pr
 	t->sp-=RESTORE_POP;
 	
 	//	Put thread in queue of threads waiting to run
-	unsigned int i;
+	size_t i;
 	for (i=0;i<MAX_THREADS;++i) if (thread_queue[i]==0) {
 		
 		thread_queue[i]=t;
@@ -255,7 +256,7 @@ int main (void) {
 }
 
 
-int syscall (enum syscall num, unsigned char * args, unsigned int len) {
+int syscall (enum syscall num, unsigned char * args, size_t len) {
 	
 	if (len>SYSCALL_MAX_ARGS) {
 		
