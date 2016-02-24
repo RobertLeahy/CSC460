@@ -1,5 +1,4 @@
 #include <avr/io.h>
-#include <kernel.h>
 #include <os.h>
 
 
