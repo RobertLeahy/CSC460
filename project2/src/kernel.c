@@ -95,7 +95,7 @@ void kdispatch (void) {
 		memmove(thread_queue,&thread_queue[1],sizeof(thread_queue)-sizeof(struct kthread *));
 		thread_queue[MAX_THREADS-1U]=next;
 		
-	} while (!next);
+	} while (!next || (next->state==DEAD));
 	
 	current_thread=next;
 	
