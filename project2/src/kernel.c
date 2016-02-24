@@ -201,7 +201,7 @@ static void kthread_create (thread_t * thread, void (*f) (void *), priority_t pr
 	kthread_enqueue(t);
 	
 	//	Return values to caller
-	*thread=avail;
+	if (thread) *thread=avail;
 	if (current_thread) current_thread->last_error=ENONE;
 	
 }

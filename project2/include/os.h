@@ -54,6 +54,8 @@ error_t * get_last_error (void);
  *		A pointer to a thread handle which will
  *		be initialized if the call succeeds.  If
  *		the call fails this shall not be modified.
+ *		\em NULL may be provided in which case the
+ *		handle will not be returned to the caller.
  *	\param [in] f
  *		The function to invoke in the created
  *		thread.
