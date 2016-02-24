@@ -172,7 +172,7 @@ static void kthread_create (thread_t * thread, void (*f) (void *), priority_t pr
 	//	are MAX_THREADS threads running
 	if (avail==MAX_THREADS) {
 		
-		if (current_thread) current_thread->last_error=EAGAIN;
+		errno=EAGAIN;
 		return;
 		
 	}
@@ -203,7 +203,7 @@ static void kthread_create (thread_t * thread, void (*f) (void *), priority_t pr
 	
 	//	Return values to caller
 	if (thread) *thread=avail;
-	if (current_thread) current_thread->last_error=ENONE;
+	errno=ENONE;
 	
 }
 
@@ -245,13 +245,12 @@ static void kthread_set_priority (thread_t thread, priority_t prio) {
 	//	The idle thread is always thread zero
 	if ((thread>MAX_THREADS) || (thread==0) || (threads[thread].state==DEAD)) {
 		
-		if (current_thread) current_thread->last_error=EINVAL;
+		errno=EINVAL;
 		return;
 		
 	}
 	
 	threads[thread].priority=prio;
-	if (current_thread) current_thread->last_error=ENONE;
 	
 }
 
@@ -266,6 +265,8 @@ static int kstart (void) {
 		if (dispatch) kdispatch();
 		dispatch=false;
 		kexit();
+		
+		current_thread->last_error=ENONE;
 		
 		switch (syscall_state.num) {
 			
