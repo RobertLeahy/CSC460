@@ -92,35 +92,47 @@ EIND=0x3C
 	lds	r31, current_thread+1
 .endm
 
-.macro SAVESP
+.macro INSP
 	in	r28, SPL
 	in	r29, SPH
-	st	Z+, r28
-	st	Z+, r29
 .endm
 
-.macro RESTORESP
-	ld	r28, Z+
-	ld	r29, Z+
+.macro OUTSP
 	out	SPL, r28
 	out	SPH, r29
 .endm
 
 
 	.section .text
-	.global kswitch
+	.global kenter
 	.global kexit
-	.extern kdispatch
+	.extern ksp
 	.extern current_thread
 
 
-kswitch:
+kenter:
+	/*	Save current context	*/
 	SAVECTX
 	CURRENTSP
-	SAVESP
+	INSP
+	st	Z+, r28
+	st	Z+, r29
+	/*	Restore kernel context	*/
+	lds	r28, ksp
+	lds	r29, ksp+1
+	OUTSP
+	RESTORECTX
+	ret
 kexit:
-	call kdispatch
+	/*	Save kernel context	*/
+	SAVECTX
+	INSP
+	sts	ksp, r28
+	sts ksp+1, r29
+	/*	Restore current context	*/
 	CURRENTSP
-	RESTORESP
+	ld	r28, Z+
+	ld	r29, Z+
+	OUTSP
 	RESTORECTX
 	ret

@@ -25,10 +25,11 @@ static struct kthread threads [MAX_THREADS];
 static struct kthread * thread_queue [MAX_THREADS];
 struct kthread * current_thread;
 error_t last_error;
+void * ksp;
 
 
 //	These are provided in assembly
-void kswitch (void);
+void kenter (void);
 void kexit (void);
 
 
@@ -81,9 +82,35 @@ int kinit (void) {
 }
 
 
+void kdispatch (void) {
+	
+	//	This implements simple round robin scheduling:
+	//	The next non-NULL entry in the queue becomes the
+	//	current task and is put back on the end
+	
+	struct kthread * next;
+	do {
+		
+		next=thread_queue[0];
+		memmove(thread_queue,&thread_queue[1],sizeof(thread_queue)-sizeof(struct kthread *));
+		thread_queue[MAX_THREADS-1U]=next;
+		
+	} while (!next);
+	
+	current_thread=next;
+	
+}
+
+
 int kstart (void) {
 	
-	asm ("jmp kexit"::);
+	for (;;) {
+		
+		kdispatch();
+		
+		kexit();
+		
+	}
 	
 	return 0;
 	
@@ -156,26 +183,6 @@ int kthread_create (thread_t * thread, void (*f) (void *), priority_t prio, void
 
 void kyield (void) {
 	
-	kswitch();
-	
-}
-
-
-void kdispatch (void) {
-	
-	//	This implements simple round robin scheduling:
-	//	The next non-NULL entry in the queue becomes the
-	//	current task and is put back on the end
-	
-	struct kthread * next;
-	do {
-		
-		next=thread_queue[0];
-		memmove(thread_queue,&thread_queue[1],sizeof(thread_queue)-sizeof(struct kthread *));
-		thread_queue[MAX_THREADS-1U]=next;
-		
-	} while (!next);
-	
-	current_thread=next;
+	kenter();
 	
 }
