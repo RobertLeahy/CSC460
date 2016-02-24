@@ -77,6 +77,9 @@ int kinit (void) {
 		(klast_error_init()!=0)
 	) return -1;
 	
+	//	Interrupts disabled while in the kernel
+	disable_interrupt();
+	
 	return 0;
 	
 }
