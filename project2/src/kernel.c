@@ -17,6 +17,8 @@
 #define RESTORE_POP (35U)
 //	The priority of the idle task
 #define IDLE_PRIO (0U)
+//	The priority of the main thread
+#define MAIN_PRIO (1U)
 
 
 //	Disables/enables interrupts
@@ -282,7 +284,7 @@ int main (void) {
 	kinit();
 	
 	thread_t m;
-	kthread_create(&m,main_thread,IDLE_PRIO+1U,0);
+	kthread_create(&m,main_thread,MAIN_PRIO,0);
 	
 	kstart();
 	
