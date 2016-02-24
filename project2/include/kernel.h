@@ -75,15 +75,5 @@ extern struct kthread * current_thread;
 extern error_t last_error;
 
 
-/**
- *	Initializes the kernel's global data structures.
- */
-int kinit (void);
-/**
- *	Starts the kernel.
- */
-int kstart (void);
-
-
 int kthread_create (thread_t * thread, void (*f) (void *), priority_t prio, void * arg);
 void kyield (void);

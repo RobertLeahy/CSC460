@@ -70,7 +70,7 @@ static int klast_error_init (void) {
 }
 
 
-int kinit (void) {
+static int kinit (void) {
 	
 	if (
 		(kthread_init()!=0) ||
@@ -105,7 +105,7 @@ static void kdispatch (void) {
 }
 
 
-int kstart (void) {
+static int kstart (void) {
 	
 	for (;;) {
 		
@@ -116,6 +116,30 @@ int kstart (void) {
 	}
 	
 	return 0;
+	
+}
+
+
+void rtos_main (void);
+
+
+static void main_thread (void * arg) {
+	
+	(void)arg;
+	rtos_main();
+	
+}
+
+
+int main (void) {
+	
+	kinit();
+	
+	thread_t m;
+	//	TODO: Adjust priority
+	kthread_create(&m,main_thread,0,0);
+	
+	kstart();
 	
 }
 

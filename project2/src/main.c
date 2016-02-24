@@ -41,9 +41,7 @@ static void ping (void * arg) {
 }
 
 
-int main (void) {
-	
-	kinit();
+void rtos_main (void) {
 	
 	DDRB|=1<<PB7;
 	
@@ -51,7 +49,5 @@ int main (void) {
 	thread_create(&pi,ping,0,0);
 	thread_t po;
 	thread_create(&po,pong,0,0);
-	
-	kstart();
 	
 }
