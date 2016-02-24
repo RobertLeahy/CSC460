@@ -96,6 +96,54 @@ static int ktimer_init (void) {
 }
 
 
+static struct kthread * kthread_dequeue (void) {
+	
+	struct kthread * retr;
+	do {
+		
+		retr=thread_queue[0];
+		memmove(thread_queue,&thread_queue[1],sizeof(thread_queue)-sizeof(struct kthread *));
+		thread_queue[MAX_THREADS-1U]=0;
+		
+	} while (!retr || (retr->state!=READY));
+	
+	return retr;
+	
+}
+
+
+static void kthread_enqueue (struct kthread * t) {
+	
+	if (t->state!=READY) return;
+	
+	size_t loc;
+	for (loc=0;loc<MAX_THREADS;++loc) {
+		
+		struct kthread * curr=thread_queue[loc];
+		if (!curr) break;
+		//	Every task has higher priority than the
+		//	idle task
+		if (curr->start_routine==&kidle) break;
+		if (curr->priority<t->priority) break;
+		
+	}
+	
+	struct kthread ** ptr=thread_queue;
+	ptr+=loc;
+	memmove(ptr+1U,ptr,sizeof(struct kthread *)*(MAX_THREADS-1U-loc));
+	thread_queue[loc]=t;
+	
+}
+
+
+static void kdispatch (void) {
+	
+	current_thread=kthread_dequeue();
+	kthread_enqueue(current_thread);
+	
+}
+
+
 static void kthread_start (void) {
 	
 	//	Interrupts are enabled in non-kernel
@@ -150,13 +198,7 @@ static void kthread_create (thread_t * thread, void (*f) (void *), priority_t pr
 	t->sp-=RESTORE_POP;
 	
 	//	Put thread in queue of threads waiting to run
-	size_t i;
-	for (i=0;i<MAX_THREADS;++i) if (thread_queue[i]==0) {
-		
-		thread_queue[i]=t;
-		break;
-		
-	}
+	kthread_enqueue(t);
 	
 	//	Return values to caller
 	*thread=avail;
@@ -177,26 +219,6 @@ static int kthread_init (void) {
 	kthread_create(&ignored,kidle,IDLE_PRIO,0);
 	
 	return 0;
-	
-}
-
-
-static void kdispatch (void) {
-	
-	//	This implements simple round robin scheduling:
-	//	The next non-NULL entry in the queue becomes the
-	//	current task and is put back on the end
-	
-	struct kthread * next;
-	do {
-		
-		next=thread_queue[0];
-		memmove(thread_queue,&thread_queue[1],sizeof(thread_queue)-sizeof(struct kthread *));
-		thread_queue[MAX_THREADS-1U]=next;
-		
-	} while (!next || (next->state==DEAD));
-	
-	current_thread=next;
 	
 }
 
