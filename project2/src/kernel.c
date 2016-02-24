@@ -2,6 +2,7 @@
 #include <avr/io.h>
 #include <kernel.h>
 #include <os.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -260,14 +261,16 @@ static void kthread_set_priority (thread_t thread, priority_t prio) {
 
 static int kstart (void) {
 	
-	for (;;) {
+	for (bool dispatch=true;;) {
 		
-		kdispatch();
+		if (dispatch) kdispatch();
+		dispatch=false;
 		kexit();
 		
 		switch (syscall_state.num) {
 			
 			case SYSCALL_YIELD:
+				dispatch=true;
 				break;
 				
 			case SYSCALL_THREAD_CREATE:{
