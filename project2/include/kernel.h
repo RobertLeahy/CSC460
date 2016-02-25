@@ -48,6 +48,30 @@ enum syscall {
 
 
 /**
+ *	Represents the syscall state of a thread.
+ */
+struct ksyscall_state {
+	
+	/**
+	 *	The syscall which was made last by the
+	 *	thread.
+	 */
+	enum syscall num;
+	/**
+	 *	A pointer to a buffer containing the arguments
+	 *	to the syscall (if any).
+	 */
+	void * args;
+	/**
+	 *	The length of the buffer pointer to by \em args
+	 *	in bytes.
+	 */
+	size_t len;
+	
+};
+
+
+/**
  *	Represents a thread.
  */
 struct kthread {
@@ -82,6 +106,11 @@ struct kthread {
 	 *	Indicates the priority of this thread.
 	 */
 	priority_t priority;
+	/**
+	 *	A structure which represents the last syscall
+	 *	executed on this thread.
+	 */
+	struct ksyscall_state syscall;
 	
 };
 

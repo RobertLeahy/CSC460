@@ -35,13 +35,6 @@ error_t last_error;
 void * ksp;
 
 
-static struct {
-	enum syscall num;
-	void * args;
-	size_t len;
-} syscall_state;
-
-
 struct kmutex {
 	
 	bool valid;
@@ -498,7 +491,11 @@ static int kstart (void) {
 		
 		current_thread->last_error=ENONE;
 		
-		switch (syscall_state.num) {
+		struct ksyscall_state * state=&current_thread->syscall;
+		enum syscall num=state->num;
+		void * args=state->args;
+		size_t len=state->len;
+		switch (num) {
 			
 			case SYSCALL_YIELD:
 				dispatch=true;
@@ -506,17 +503,17 @@ static int kstart (void) {
 				
 			case SYSCALL_THREAD_CREATE:{
 				
-				if (syscall_state.len!=(sizeof(thread_t *)+sizeof(void (*) (void *))+sizeof(priority_t)+sizeof(void *))) goto invalid_length;
+				if (len!=(sizeof(thread_t *)+sizeof(void (*) (void *))+sizeof(priority_t)+sizeof(void *))) goto invalid_length;
 				
 				size_t i=0;
 				thread_t * thread;
-				SYSCALL_POP(thread,syscall_state.args,i);
+				SYSCALL_POP(thread,args,i);
 				void (*f) (void *);
-				SYSCALL_POP(f,syscall_state.args,i);
+				SYSCALL_POP(f,args,i);
 				priority_t prio;
-				SYSCALL_POP(prio,syscall_state.args,i);
+				SYSCALL_POP(prio,args,i);
 				void * arg;
-				SYSCALL_POP(arg,syscall_state.args,i);
+				SYSCALL_POP(arg,args,i);
 				
 				kthread_create(thread,f,prio,arg);
 				
@@ -524,11 +521,11 @@ static int kstart (void) {
 			
 			case SYSCALL_THREAD_SELF:{
 				
-				if (syscall_state.len!=sizeof(thread_t *)) goto invalid_length;
+				if (len!=sizeof(thread_t *)) goto invalid_length;
 				
 				size_t i=0;
 				thread_t * retr;
-				SYSCALL_POP(retr,syscall_state.args,i);
+				SYSCALL_POP(retr,args,i);
 				struct kthread * begin=threads;
 				*retr=(size_t)(current_thread-begin);
 				
@@ -536,13 +533,13 @@ static int kstart (void) {
 			
 			case SYSCALL_THREAD_SET_PRIORITY:{
 				
-				if (syscall_state.len!=(sizeof(thread_t)+sizeof(priority_t))) goto invalid_length;
+				if (len!=(sizeof(thread_t)+sizeof(priority_t))) goto invalid_length;
 				
 				size_t i=0;
 				thread_t thread;
-				SYSCALL_POP(thread,syscall_state.args,i);
+				SYSCALL_POP(thread,args,i);
 				priority_t prio;
-				SYSCALL_POP(prio,syscall_state.args,i);
+				SYSCALL_POP(prio,args,i);
 				
 				kthread_set_priority(thread,prio);
 				
@@ -550,11 +547,11 @@ static int kstart (void) {
 			
 			case SYSCALL_MUTEX_CREATE:{
 				
-				if (syscall_state.len!=sizeof(mutex_t *)) goto invalid_length;
+				if (len!=sizeof(mutex_t *)) goto invalid_length;
 				
 				size_t i=0;
 				mutex_t * mutex;
-				SYSCALL_POP(mutex,syscall_state.args,i);
+				SYSCALL_POP(mutex,args,i);
 				
 				kmutex_create(mutex);
 				
@@ -564,13 +561,13 @@ static int kstart (void) {
 			case SYSCALL_MUTEX_LOCK:
 			case SYSCALL_MUTEX_UNLOCK:{
 				
-				if (syscall_state.len!=sizeof(mutex_t)) goto invalid_length;
+				if (len!=sizeof(mutex_t)) goto invalid_length;
 				
 				size_t i=0;
 				mutex_t mutex;
-				SYSCALL_POP(mutex,syscall_state.args,i);
+				SYSCALL_POP(mutex,args,i);
 				
-				switch (syscall_state.num) {
+				switch (num) {
 					
 					case SYSCALL_MUTEX_DESTROY:
 						kmutex_destroy(mutex);
@@ -630,9 +627,10 @@ int main (void) {
 
 int syscall (enum syscall num, void * args, size_t len) {
 	
-	syscall_state.args=args;
-	syscall_state.num=num;
-	syscall_state.len=len;
+	struct ksyscall_state * s=&current_thread->syscall;
+	s->num=num;
+	s->args=args;
+	s->len=len;
 	kenter();
 	
 	return (errno==ENONE) ? 0 : -1;
