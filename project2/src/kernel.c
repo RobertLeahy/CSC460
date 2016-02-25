@@ -117,18 +117,87 @@ static void kthread_enqueue (struct kthread * t) {
 	
 	if (t->state!=READY) return;
 	
-	size_t loc;
-	for (loc=0;loc<MAX_THREADS;++loc) {
+	//	We need to determine two or three things:
+	//
+	//	1.	Where should this task be (i.e. loc)
+	//	2.	Has this task already been inserted (i.e. dup)
+	//
+	//	If 2, we also need to determine if the task is
+	//	in the correct location for its current priority
+	//	(i.e. is_sorted)
+	bool is_sorted=true;
+	size_t dup=MAX_THREADS;
+	size_t loc=MAX_THREADS;
+	for (size_t i=0;i<MAX_THREADS;++i) {
 		
-		struct kthread * curr=thread_queue[loc];
-		if (!curr) break;
-		//	Every task has higher priority than the
-		//	idle task
-		if (curr->start_routine==&kidle) break;
-		if (curr->priority<t->priority) break;
+		struct kthread * curr=thread_queue[i];
+		
+		if (curr==t) {
+			
+			dup=i;
+			
+		} else {
+			
+			//	Determine whether the priority of
+			//	this task is correct wrt the priority
+			//	of the incoming thread
+			if (loc==MAX_THREADS) {
+				
+				//	Priorities should all be larger
+				//	than or equal to the incoming thread's
+				//	since the incoming thread's position has
+				//	not been found yet
+				if (curr->priority<t->priority) is_sorted=false;
+				
+			} else {
+				
+				//	Priorities should all be smaller than
+				//	or equal to the incoming thread's since
+				//	the incoming thread's position has been
+				//	found (and is therefore ahead of the
+				//	current position in the queue)
+				if (curr->priority>t->priority) is_sorted=false;
+				
+			}
+			
+		}
+		
+		//	We already found the insertion point,
+		//	so we don't need to do anything else
+		if (loc!=MAX_THREADS) continue;
+		
+		//	This position should be ahead of the incoming
+		//	thread (assuming we insert the incoming thread
+		//	and don't keep its current position)
+		if (curr && (curr->start_routine!=&kidle) && (curr->priority>=t->priority)) continue;
+		
+		loc=i;
 		
 	}
 	
+	//	If this thread is already in the queue
+	if (dup!=MAX_THREADS) {
+		
+		//	If its current position is fine for
+		//	its current priority, that's great,
+		//	we're done
+		if (is_sorted) return;
+		
+		//	Otherwise we have to remove & re-insert
+		
+		//	The duplicate is infront of the insertion
+		//	location, removing it will move the insertion
+		//	location ahead one
+		if (dup<loc) --loc;
+		
+		struct kthread ** ptr=thread_queue;
+		ptr+=dup;
+		memmove(ptr,ptr+1,sizeof(struct kthread *)*(MAX_THREADS-1U-dup));
+		thread_queue[MAX_THREADS-1U]=0;
+		
+	}
+	
+	//	Insert
 	struct kthread ** ptr=thread_queue;
 	ptr+=loc;
 	memmove(ptr+1U,ptr,sizeof(struct kthread *)*(MAX_THREADS-1U-loc));
@@ -251,6 +320,9 @@ static void kthread_set_priority (thread_t thread, priority_t prio) {
 	}
 	
 	threads[thread].priority=prio;
+	//	The change of priority may have affected when the thread
+	//	should run again
+	kthread_enqueue(&threads[thread]);
 	
 }
 
