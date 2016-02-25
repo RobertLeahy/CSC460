@@ -358,6 +358,37 @@ static struct kthread * kthread_wait_pop (struct kthread * t) {
 }
 
 
+static void kthread_wait_insert (struct kthread * t, struct kthread * after) {
+	
+	//	Being inserted into the wait queue means
+	//	you're blocked
+	t->state=BLOCKED;
+	
+	//	TODO: Remove from dispatch queue?
+	
+	struct kthread * next=after->wait.next;
+	if (next) next->wait.prev=t;
+	t->wait.next=next;
+	t->wait.prev=after;
+	after->wait.next=t;
+	
+}
+
+
+static void kthread_wait_prio_push (struct kthread * head, struct kthread * t) {
+	
+	struct kthread * loc;
+	for (loc=head;loc->wait.next!=0;loc=loc->wait.next) {
+		
+		if (loc->wait.next->priority<t->priority) break;
+		
+	}
+	
+	kthread_wait_insert(t,loc);
+	
+}
+
+
 static void kmutex_create (mutex_t * mutex) {
 	
 	mutex_t m;
@@ -436,29 +467,9 @@ static void kmutex_lock (mutex_t mutex) {
 		
 	}
 	
-	//	Current thread will have to wait
-	current_thread->state=BLOCKED;
-	
 	//	TODO: Handle priority inversion
 	
-	//	Higher priority threads get the
-	//	lock first
-	struct kthread * loc;
-	for (loc=curr->owner;loc->wait.next!=0;loc=loc->wait.next) {
-		
-		if (loc->wait.next->priority<current_thread->priority) break;
-		
-	}
-	
-	//	loc points to the kthread that the
-	//	current thread should go AFTER
-	if (loc->wait.next) loc->wait.next->wait.prev=current_thread;
-	current_thread->wait.next=loc->wait.next;
-	current_thread->wait.prev=loc;
-	loc->wait.next=current_thread;
-	
-	//	TODO: Remove current thread from
-	//	dispatch queue?
+	kthread_wait_prio_push(curr->owner,current_thread);
 	
 }
 
