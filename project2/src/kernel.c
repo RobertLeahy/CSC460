@@ -526,7 +526,7 @@ static int kstart (void) {
 				thread_t * retr;
 				SYSCALL_POP(retr,args,i);
 				struct kthread * begin=threads;
-				*retr=(size_t)(current_thread-begin);
+				*retr=(thread_t)(current_thread-begin);
 				
 			}break;
 			
