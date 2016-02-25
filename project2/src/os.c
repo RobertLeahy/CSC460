@@ -16,6 +16,17 @@ error_t * get_last_error (void) {
 }
 
 
+#ifdef DEBUG
+unsigned int get_last_syscall (void) {
+	
+	if (!current_thread) return 0;
+	
+	return current_thread->syscall.num;
+	
+}
+#endif
+
+
 int thread_create (thread_t * thread, void (*f) (void *), priority_t prio, void * arg) {
 	
 	unsigned char buffer [sizeof(thread)+sizeof(f)+sizeof(prio)+sizeof(arg)];

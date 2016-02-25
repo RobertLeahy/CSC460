@@ -49,6 +49,11 @@ error_t * get_last_error (void);
 #define errno (*get_last_error())
 
 
+#ifdef DEBUG
+unsigned int get_last_syscall (void);
+#endif
+
+
 /**
  *	Creates and starts a new thread.
  *

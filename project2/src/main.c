@@ -2,17 +2,57 @@
 #include <os.h>
 
 
-static void error (void) {
+static void on (void) {
 	
-	asm volatile ("cli"::);
-	for (;;);
+	PORTB|=1<<PB7;
 	
 }
 
 
-static void wait (void) {
+static void off (void) {
 	
-	for (unsigned int n=0;n<3;++n) for (unsigned int i=0;i<32000U;++i) asm volatile ("nop"::);
+	PORTB&=~(1<<PB7);
+	
+}
+
+
+static void wait (unsigned int num) {
+	
+	for (unsigned int n=0;n<num;++n) for (unsigned int i=0;i<32000U;++i) asm volatile ("nop"::);
+	
+}
+
+
+static void blink_number (unsigned int num) {
+	
+	for (unsigned int n=0;n<num;++n) {
+		
+		on();
+		wait(4);
+		off();
+		wait(4);
+		
+	}
+	
+}
+
+
+static void error (void) {
+	
+	asm volatile ("cli"::);
+	
+	unsigned int err=errno;
+	for (;;) {
+		
+		wait(25);
+		
+		blink_number(err);
+		#ifdef DEBUG
+		wait(10);
+		blink_number(get_last_syscall());
+		#endif
+		
+	}
 	
 }
 
@@ -24,8 +64,8 @@ static void pong (void * arg) {
 		
 		if (mutex_lock(mutex)!=0) error();
 		
-		PORTB|=1<<PB7;
-		wait();
+		on();
+		wait(3);
 		
 		if (mutex_unlock(mutex)!=0) error();
 		yield();
@@ -42,8 +82,8 @@ static void ping (void * arg) {
 		
 		if (mutex_lock(mutex)!=0) error();
 		
-		PORTB&=~(1<<PB7);
-		wait();
+		off();
+		wait(3);
 		
 		if (mutex_unlock(mutex)!=0) error();
 		yield();
