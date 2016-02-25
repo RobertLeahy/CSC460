@@ -365,10 +365,21 @@ static void kmutex_create (mutex_t * mutex) {
 //	if the handle is valid, NULL otherwise
 static struct kmutex * kmutex_get (mutex_t mutex) {
 	
-	if (mutex>=MAX_MUTEXES) return 0;
+	if (mutex>=MAX_MUTEXES) {
+		
+		errno=EINVAL;
+		return 0;
+		
+	}
 	
 	struct kmutex * retr=&mutexes[mutex];
-	if (!retr->valid) return 0;
+	
+	if (!retr->valid) {
+		
+		errno=EINVAL;
+		return 0;
+		
+	}
 	
 	return retr;
 	
@@ -378,12 +389,7 @@ static struct kmutex * kmutex_get (mutex_t mutex) {
 static void kmutex_destroy (mutex_t mutex) {
 	
 	struct kmutex * curr=kmutex_get(mutex);
-	if (!curr) {
-		
-		errno=EINVAL;
-		return;
-		
-	}
+	if (!curr) return;
 	
 	//	If the destroyed mutex has threads waiting on it
 	//	that's just too bad, undefined behaviour
@@ -395,12 +401,7 @@ static void kmutex_destroy (mutex_t mutex) {
 static void kmutex_lock (mutex_t mutex) {
 	
 	struct kmutex * curr=kmutex_get(mutex);
-	if (!curr) {
-		
-		errno=EINVAL;
-		return;
-		
-	}
+	if (!curr) return;
 	
 	//	Unowned, current thread becomes owner
 	//	at once
@@ -446,12 +447,7 @@ static void kmutex_lock (mutex_t mutex) {
 static void kmutex_unlock (mutex_t mutex) {
 	
 	struct kmutex * curr=kmutex_get(mutex);
-	if (!curr) {
-		
-		errno=EINVAL;
-		return;
-		
-	}
+	if (!curr) return;
 	
 	if (current_thread!=curr->queue[0]) {
 		
