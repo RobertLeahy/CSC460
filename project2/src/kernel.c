@@ -391,17 +391,13 @@ static void kmutex_destroy (mutex_t mutex) {
 }
 
 
-//	Return value indicates whether kernel should
-//	dispatch a new thread (i.e. true if the current
-//	thread has to wait for the lock, false if it
-//	can become the owner immediately)
-static bool kmutex_lock (mutex_t mutex) {
+static void kmutex_lock (mutex_t mutex) {
 	
 	struct kmutex * curr=kmutex_get(mutex);
 	if (!curr) {
 		
 		errno=EINVAL;
-		return false;
+		return;
 		
 	}
 	
@@ -410,7 +406,7 @@ static bool kmutex_lock (mutex_t mutex) {
 	if (!curr->queue[0]) {
 		
 		curr->queue[0]=current_thread;
-		return false;
+		return;
 		
 	}
 	
@@ -418,7 +414,7 @@ static bool kmutex_lock (mutex_t mutex) {
 	if (curr->queue[0]==current_thread) {
 		
 		errno=EDEADLK;
-		return false;
+		return;
 		
 	}
 	
@@ -442,8 +438,6 @@ static bool kmutex_lock (mutex_t mutex) {
 	ptr+=loc;
 	memmove(ptr+1,ptr,sizeof(struct kthread *)*(MAX_THREADS-1U-loc));
 	*ptr=current_thread;
-	
-	return true;
 	
 }
 
@@ -485,7 +479,7 @@ static int kstart (void) {
 	
 	for (bool dispatch=true;;) {
 		
-		if (dispatch) kdispatch();
+		if (dispatch || (current_thread->state!=READY)) kdispatch();
 		dispatch=false;
 		kexit();
 		
@@ -573,7 +567,7 @@ static int kstart (void) {
 						kmutex_destroy(mutex);
 						break;
 					case SYSCALL_MUTEX_LOCK:
-						dispatch=kmutex_lock(mutex);
+						kmutex_lock(mutex);
 						break;
 					case SYSCALL_MUTEX_UNLOCK:
 					default:
