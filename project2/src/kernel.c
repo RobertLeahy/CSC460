@@ -300,8 +300,7 @@ static int kthread_init (void) {
 	quantum_expired=false;
 	
 	//	Start idle task
-	thread_t ignored;
-	kthread_create(&ignored,kidle,IDLE_PRIO,0);
+	kthread_create(0,kidle,IDLE_PRIO,0);
 	
 	return 0;
 	
