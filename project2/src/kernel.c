@@ -33,6 +33,7 @@ static struct kthread * thread_queue [MAX_THREADS];
 struct kthread * current_thread;
 error_t last_error;
 void * ksp;
+static bool quantum_expired;
 
 
 struct kmutex {
@@ -296,6 +297,7 @@ static int kthread_init (void) {
 	memset(threads,0,sizeof(threads));
 	memset(thread_queue,0,sizeof(thread_queue));
 	current_thread=0;
+	quantum_expired=false;
 	
 	//	Start idle task
 	thread_t ignored;
@@ -483,6 +485,14 @@ static int kstart (void) {
 		dispatch=false;
 		kexit();
 		
+		if (quantum_expired) {
+			
+			quantum_expired=false;
+			dispatch=true;
+			continue;
+			
+		}
+		
 		current_thread->last_error=ENONE;
 		
 		struct ksyscall_state * state=&current_thread->syscall;
@@ -634,6 +644,7 @@ int syscall (enum syscall num, void * args, size_t len) {
 
 ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
 	
-	syscall(SYSCALL_YIELD,0,0);
+	quantum_expired=true;
+	kenter();
 	
 }
