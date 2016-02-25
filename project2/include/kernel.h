@@ -75,7 +75,6 @@ struct kthread;
 //	Implementation detail
 struct kthread_node {
 	
-	struct kthread * prev;
 	struct kthread * next;
 	
 };

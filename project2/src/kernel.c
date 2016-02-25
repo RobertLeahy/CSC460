@@ -36,10 +36,18 @@ void * ksp;
 static bool quantum_expired;
 
 
+struct kthread_linked_list {
+	
+	struct kthread * head;
+	struct kthread * tail;
+	
+};
+
+
 struct kmutex {
 	
 	bool valid;
-	struct kthread * owner;
+	struct kthread_linked_list queue;
 	
 };
 static struct kmutex mutexes [MAX_MUTEXES];
@@ -342,14 +350,22 @@ static void kthread_set_priority (thread_t thread, priority_t prio) {
 }
 
 
-static struct kthread * kthread_wait_pop (struct kthread * t) {
+static struct kthread * kthread_wait_pop (struct kthread_linked_list * ll) {
 	
-	struct kthread * retr=t->wait.next;
+	struct kthread * retr=ll->head->wait.next;
+	ll->head->wait.next=0;
+	ll->head=retr;
+	if (!retr) {
+		
+		ll->tail=0;
+		
+		return 0;
+		
+	}
 	
-	if (!retr) return 0;
-	
-	t->wait.next=0;
-	retr->wait.prev=0;
+	//	If we pop a thread off the waiting queue
+	//	it's ready to run again, so set its state
+	//	and put it in the dispatch queue
 	retr->state=READY;
 	kthread_enqueue(retr);
 	
@@ -358,33 +374,29 @@ static struct kthread * kthread_wait_pop (struct kthread * t) {
 }
 
 
-static void kthread_wait_insert (struct kthread * t, struct kthread * after) {
+static void kthread_wait_insert (struct kthread_linked_list * ll, struct kthread * after, struct kthread * t) {
 	
 	//	Being inserted into the wait queue means
 	//	you're blocked
 	t->state=BLOCKED;
 	
-	//	TODO: Remove from dispatch queue?
-	
-	struct kthread * next=after->wait.next;
-	if (next) next->wait.prev=t;
-	t->wait.next=next;
-	t->wait.prev=after;
+	t->wait.next=after->wait.next;
 	after->wait.next=t;
+	if (!t->wait.next) ll->tail=t;
 	
 }
 
 
-static void kthread_wait_prio_push (struct kthread * head, struct kthread * t) {
+static void kthread_wait_prio_push (struct kthread_linked_list * ll, struct kthread * t) {
 	
 	struct kthread * loc;
-	for (loc=head;loc->wait.next!=0;loc=loc->wait.next) {
+	for (loc=ll->head;loc->wait.next!=0;loc=loc->wait.next) {
 		
 		if (loc->wait.next->priority<t->priority) break;
 		
 	}
 	
-	kthread_wait_insert(t,loc);
+	kthread_wait_insert(ll,loc,t);
 	
 }
 
@@ -452,15 +464,15 @@ static void kmutex_lock (mutex_t mutex) {
 	
 	//	Unowned, current thread becomes owner
 	//	at once
-	if (!curr->owner) {
+	if (!curr->queue.head) {
 		
-		curr->owner=current_thread;
+		curr->queue.tail=curr->queue.head=current_thread;
 		return;
 		
 	}
 	
 	//	TODO: Make mutex recursive
-	if (curr->owner==current_thread) {
+	if (curr->queue.head==current_thread) {
 		
 		errno=EDEADLK;
 		return;
@@ -469,7 +481,7 @@ static void kmutex_lock (mutex_t mutex) {
 	
 	//	TODO: Handle priority inversion
 	
-	kthread_wait_prio_push(curr->owner,current_thread);
+	kthread_wait_prio_push(&curr->queue,current_thread);
 	
 }
 
@@ -479,14 +491,14 @@ static void kmutex_unlock (mutex_t mutex) {
 	struct kmutex * curr=kmutex_get(mutex);
 	if (!curr) return;
 	
-	if (current_thread!=curr->owner) {
+	if (current_thread!=curr->queue.head) {
 		
 		errno=EPERM;
 		return;
 		
 	}
 	
-	curr->owner=kthread_wait_pop(curr->owner);
+	kthread_wait_pop(&curr->queue);
 	
 	//	TODO: Reschedule if higher priority
 	//	thread was waiting?
