@@ -8,6 +8,7 @@
 
 
 #define MAX_THREADS (4U)
+#define MAX_MUTEXES (8U)
 //	This is the number of bytes that are
 //	popped when restoring a context:
 //
@@ -41,6 +42,15 @@ static struct {
 } syscall_state;
 
 
+struct kmutex {
+	
+	bool valid;
+	struct kthread * queue [MAX_THREADS];
+	
+};
+static struct kmutex mutexes [MAX_MUTEXES];
+
+
 //	These are provided in assembly
 void kenter (void);
 void kexit (void);
@@ -61,6 +71,16 @@ static void kidle (void * arg) {
 static int klast_error_init (void) {
 	
 	last_error=ENONE;
+	
+	return 0;
+	
+}
+
+
+//	Initializes global collection of mutexes
+static int kmutex_init (void) {
+	
+	memset(mutexes,0,sizeof(mutexes));
 	
 	return 0;
 	
@@ -301,7 +321,8 @@ static int kinit (void) {
 	if (
 		(kthread_init()!=0) ||
 		(klast_error_init()!=0) ||
-		(ktimer_init()!=0)
+		(ktimer_init()!=0) ||
+		(kmutex_init()!=0)
 	) return -1;
 	
 	return 0;
@@ -323,6 +344,143 @@ static void kthread_set_priority (thread_t thread, priority_t prio) {
 	//	The change of priority may have affected when the thread
 	//	should run again
 	kthread_enqueue(&threads[thread]);
+	
+}
+
+
+static void kmutex_create (mutex_t * mutex) {
+	
+	mutex_t m;
+	for (m=0;m<MAX_MUTEXES;++m) if (!mutexes[m].valid) break;
+	if (m==MAX_MUTEXES) {
+		
+		errno=EAGAIN;
+		return;
+		
+	}
+	
+	struct kmutex * ptr=&mutexes[m];
+	memset(ptr,0,sizeof(*ptr));
+	ptr->valid=true;
+	*mutex=m;
+	
+}
+
+
+//	Returns a pointer to the kernel mutex object
+//	if the handle is valid, NULL otherwise
+static struct kmutex * kmutex_get (mutex_t mutex) {
+	
+	if (mutex>=MAX_MUTEXES) return 0;
+	
+	struct kmutex * retr=&mutexes[mutex];
+	if (!retr->valid) return 0;
+	
+	return retr;
+	
+}
+
+
+static void kmutex_destroy (mutex_t mutex) {
+	
+	struct kmutex * curr=kmutex_get(mutex);
+	if (!curr) {
+		
+		errno=EINVAL;
+		return;
+		
+	}
+	
+	//	If the destroyed mutex has threads waiting on it
+	//	that's just too bad, undefined behaviour
+	curr->valid=false;
+	
+}
+
+
+//	Return value indicates whether kernel should
+//	dispatch a new thread (i.e. true if the current
+//	thread has to wait for the lock, false if it
+//	can become the owner immediately)
+static bool kmutex_lock (mutex_t mutex) {
+	
+	struct kmutex * curr=kmutex_get(mutex);
+	if (!curr) {
+		
+		errno=EINVAL;
+		return false;
+		
+	}
+	
+	//	Unowned, current thread becomes owner
+	//	at once
+	if (!curr->queue[0]) {
+		
+		curr->queue[0]=current_thread;
+		return false;
+		
+	}
+	
+	//	TODO: Make mutex recursive
+	if (curr->queue[0]==current_thread) {
+		
+		errno=EDEADLK;
+		return false;
+		
+	}
+	
+	//	Current thread will have to wait
+	current_thread->state=BLOCKED;
+	
+	//	TODO: Handle priority inversion
+	
+	//	Higher priority threads get the
+	//	lock first
+	size_t loc;
+	for (loc=1;loc<MAX_THREADS;++loc) {
+		
+		struct kthread * t=curr->queue[loc];
+		if (!t) break;
+		if (t->priority<current_thread->priority) break;
+		
+	}
+	
+	struct kthread ** ptr=curr->queue;
+	ptr+=loc;
+	memmove(ptr+1,ptr,sizeof(struct kthread *)*(MAX_THREADS-1U-loc));
+	*ptr=current_thread;
+	
+	return true;
+	
+}
+
+
+static void kmutex_unlock (mutex_t mutex) {
+	
+	struct kmutex * curr=kmutex_get(mutex);
+	if (!curr) {
+		
+		errno=EINVAL;
+		return;
+		
+	}
+	
+	if (current_thread!=curr->queue[0]) {
+		
+		errno=EPERM;
+		return;
+		
+	}
+	
+	memmove(curr->queue,&curr->queue[1],sizeof(curr->queue)-sizeof(struct kthread *));
+	curr->queue[MAX_THREADS-1U]=0;
+	struct kthread * wake=curr->queue[0];
+	if (!wake) return;
+	wake->state=READY;
+	kthread_enqueue(wake);
+	
+	//	TODO: Reschedule if higher priority
+	//	thread was waiting?
 	
 }
 
@@ -387,6 +545,45 @@ static int kstart (void) {
 				SYSCALL_POP(prio,syscall_state.args,i);
 				
 				kthread_set_priority(thread,prio);
+				
+			}break;
+			
+			case SYSCALL_MUTEX_CREATE:{
+				
+				if (syscall_state.len!=sizeof(mutex_t *)) goto invalid_length;
+				
+				size_t i=0;
+				mutex_t * mutex;
+				SYSCALL_POP(mutex,syscall_state.args,i);
+				
+				kmutex_create(mutex);
+				
+			}break;
+			
+			case SYSCALL_MUTEX_DESTROY:
+			case SYSCALL_MUTEX_LOCK:
+			case SYSCALL_MUTEX_UNLOCK:{
+				
+				if (syscall_state.len!=sizeof(mutex_t)) goto invalid_length;
+				
+				size_t i=0;
+				mutex_t mutex;
+				SYSCALL_POP(mutex,syscall_state.args,i);
+				
+				switch (syscall_state.num) {
+					
+					case SYSCALL_MUTEX_DESTROY:
+						kmutex_destroy(mutex);
+						break;
+					case SYSCALL_MUTEX_LOCK:
+						dispatch=kmutex_lock(mutex);
+						break;
+					case SYSCALL_MUTEX_UNLOCK:
+					default:
+						kmutex_unlock(mutex);
+						break;
+					
+				}
 				
 			}break;
 			

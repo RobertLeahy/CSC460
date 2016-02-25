@@ -38,7 +38,9 @@ typedef unsigned int tick_t;
 typedef enum {
 	ENONE=0,
 	EAGAIN,
-	EINVAL
+	EINVAL,
+	EPERM,
+	EDEADLK
 } error_t;
 error_t * get_last_error (void);
 /**
@@ -89,6 +91,65 @@ thread_t thread_self (void);
  *		0 if this call succeeds, -1 otherwise.
  */
 int thread_set_priority (thread_t thread, priority_t prio);
+
+
+/**
+ *	Creates a mutex.
+ *
+ *	\param [out] mutex
+ *		A pointer to a mutex handle which will be
+ *		initialized in the call succeeds.  If the call
+ *		fails this shall not be modified.  May not be
+ *		\em NULL.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int mutex_create (mutex_t * mutex);
+/**
+ *	Destroys a mutex.
+ *
+ *	If the mutex currently has threads waiting on it
+ *	the behaviour is undefined.
+ *
+ *	This call shall only fail if \em mutex does not
+ *	represent a valid mutex.
+ *
+ *	\param [in] mutex
+ *		A mutex handle representing the mutex to be
+ *		destroyed.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int mutex_destroy (mutex_t mutex);
+/**
+ *	Locks a mutex.
+ *
+ *	This call shall only fail if \em mutex does not
+ *	represent a valid mutex.
+ *
+ *	\param [in] mutex
+ *		A mutex handle representing the mutex to lock.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int mutex_lock (mutex_t mutex);
+/**
+ *	Unlocks a mutex.
+ *
+ *	This call shall only fail if \em mutex does not
+ *	represent a valid mutex or if the calling thread
+ *	does not own the mutex indicated by \em mutex.
+ *
+ *	\param [in] mutex
+ *		A mutex handle representing the mutex to lock.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int mutex_unlock (mutex_t mutex);
 
 
 /**

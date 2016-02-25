@@ -57,6 +57,49 @@ int thread_set_priority (thread_t thread, priority_t prio) {
 }
 
 
+int mutex_create (mutex_t * mutex) {
+	
+	unsigned char buffer [sizeof(mutex)];
+	size_t i=0;
+	SYSCALL_PUSH(mutex,buffer,i);
+	
+	return syscall(SYSCALL_MUTEX_CREATE,buffer,sizeof(buffer));
+	
+}
+
+
+static int mutex_helper (enum syscall sc, mutex_t mutex) {
+	
+	unsigned char buffer [sizeof(mutex)];
+	size_t i=0;
+	SYSCALL_PUSH(mutex,buffer,i);
+	
+	return syscall(sc,buffer,sizeof(buffer));
+	
+}
+
+
+int mutex_destroy (mutex_t mutex) {
+	
+	return mutex_helper(SYSCALL_MUTEX_DESTROY,mutex);
+	
+}
+
+
+int mutex_lock (mutex_t mutex) {
+	
+	return mutex_helper(SYSCALL_MUTEX_LOCK,mutex);
+	
+}
+
+
+int mutex_unlock (mutex_t mutex) {
+	
+	return mutex_helper(SYSCALL_MUTEX_UNLOCK,mutex);
+	
+}
+
+
 void yield (void) {
 	
 	syscall(SYSCALL_YIELD,0,0);
