@@ -71,6 +71,16 @@ struct ksyscall_state {
 };
 
 
+struct kthread;
+//	Implementation detail
+struct kthread_node {
+	
+	struct kthread * prev;
+	struct kthread * next;
+	
+};
+
+
 /**
  *	Represents a thread.
  */
@@ -111,6 +121,9 @@ struct kthread {
 	 *	executed on this thread.
 	 */
 	struct ksyscall_state syscall;
+	
+	//	Implementation details
+	struct kthread_node wait;
 	
 };
 

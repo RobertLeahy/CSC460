@@ -39,7 +39,7 @@ static bool quantum_expired;
 struct kmutex {
 	
 	bool valid;
-	struct kthread * queue [MAX_THREADS];
+	struct kthread * owner;
 	
 };
 static struct kmutex mutexes [MAX_MUTEXES];
@@ -342,6 +342,22 @@ static void kthread_set_priority (thread_t thread, priority_t prio) {
 }
 
 
+static struct kthread * kthread_wait_pop (struct kthread * t) {
+	
+	struct kthread * retr=t->wait.next;
+	
+	if (!retr) return 0;
+	
+	t->wait.next=0;
+	retr->wait.prev=0;
+	retr->state=READY;
+	kthread_enqueue(retr);
+	
+	return retr;
+	
+}
+
+
 static void kmutex_create (mutex_t * mutex) {
 	
 	mutex_t m;
@@ -405,15 +421,15 @@ static void kmutex_lock (mutex_t mutex) {
 	
 	//	Unowned, current thread becomes owner
 	//	at once
-	if (!curr->queue[0]) {
+	if (!curr->owner) {
 		
-		curr->queue[0]=current_thread;
+		curr->owner=current_thread;
 		return;
 		
 	}
 	
 	//	TODO: Make mutex recursive
-	if (curr->queue[0]==current_thread) {
+	if (curr->owner==current_thread) {
 		
 		errno=EDEADLK;
 		return;
@@ -427,19 +443,22 @@ static void kmutex_lock (mutex_t mutex) {
 	
 	//	Higher priority threads get the
 	//	lock first
-	size_t loc;
-	for (loc=1;loc<MAX_THREADS;++loc) {
+	struct kthread * loc;
+	for (loc=curr->owner;loc->wait.next!=0;loc=loc->wait.next) {
 		
-		struct kthread * t=curr->queue[loc];
-		if (!t) break;
-		if (t->priority<current_thread->priority) break;
+		if (loc->wait.next->priority<current_thread->priority) break;
 		
 	}
 	
-	struct kthread ** ptr=curr->queue;
-	ptr+=loc;
-	memmove(ptr+1,ptr,sizeof(struct kthread *)*(MAX_THREADS-1U-loc));
-	*ptr=current_thread;
+	//	loc points to the kthread that the
+	//	current thread should go AFTER
+	if (loc->wait.next) loc->wait.next->wait.prev=current_thread;
+	current_thread->wait.next=loc->wait.next;
+	current_thread->wait.prev=loc;
+	loc->wait.next=current_thread;
+	
+	//	TODO: Remove current thread from
+	//	dispatch queue?
 	
 }
 
@@ -449,19 +468,14 @@ static void kmutex_unlock (mutex_t mutex) {
 	struct kmutex * curr=kmutex_get(mutex);
 	if (!curr) return;
 	
-	if (current_thread!=curr->queue[0]) {
+	if (current_thread!=curr->owner) {
 		
 		errno=EPERM;
 		return;
 		
 	}
 	
-	memmove(curr->queue,&curr->queue[1],sizeof(curr->queue)-sizeof(struct kthread *));
-	curr->queue[MAX_THREADS-1U]=0;
-	struct kthread * wake=curr->queue[0];
-	if (!wake) return;
-	wake->state=READY;
-	kthread_enqueue(wake);
+	curr->owner=kthread_wait_pop(curr->owner);
 	
 	//	TODO: Reschedule if higher priority
 	//	thread was waiting?
