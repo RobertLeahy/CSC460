@@ -122,6 +122,7 @@ struct kthread {
 	struct ksyscall_state syscall;
 	
 	//	Implementation details
+	struct kthread_node queue;
 	struct kthread_node wait;
 	
 };

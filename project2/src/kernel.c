@@ -29,7 +29,6 @@
 
 
 static struct kthread threads [MAX_THREADS];
-static struct kthread * thread_queue [MAX_THREADS];
 struct kthread * current_thread;
 error_t last_error;
 void * ksp;
@@ -42,6 +41,9 @@ struct kthread_linked_list {
 	struct kthread * tail;
 	
 };
+
+
+static struct kthread_linked_list thread_queue;
 
 
 struct kmutex {
@@ -119,119 +121,183 @@ static int ktimer_init (void) {
 }
 
 
-static struct kthread * kthread_dequeue (void) {
+static bool kthread_lower_priority (struct kthread * a, struct kthread * b) {
 	
-	struct kthread * retr;
-	do {
-		
-		retr=thread_queue[0];
-		memmove(thread_queue,&thread_queue[1],sizeof(thread_queue)-sizeof(struct kthread *));
-		thread_queue[MAX_THREADS-1U]=0;
-		
-	} while (!retr || (retr->state!=READY));
+	if (a->priority<b->priority) return true;
 	
-	return retr;
+	if (a->start_routine==&kidle) return true;
+	
+	return false;
+	
+}
+
+
+static bool kthread_higher_priority (struct kthread * a, struct kthread * b) {
+	
+	if (a->priority>b->priority) return true;
+	
+	if (b->start_routine==&kidle) return true;
+	
+	return false;
+	
+}
+
+
+static bool kthread_equal_priority (struct kthread * a, struct kthread * b) {
+	
+	if (a->priority!=b->priority) return false;
+	
+	if ((a->start_routine==&kidle) || (b->start_routine==&kidle)) return false;
+	
+	return true;
+	
+}
+
+
+static void kthread_enqueue_impl (struct kthread * t) {
+	
+	//	Ignore threads that are not ready to
+	//	run (we can ignore running threads because
+	//	they will be re-enqueued at the end of their
+	//	time slice
+	if (t->state!=READY) return;
+	
+	//	No threads in the queue add this one as the
+	//	only thread
+	if (!thread_queue.head) {
+		
+		thread_queue.head=t;
+		return;
+		
+	}
+	
+	//	If this thread is already in the queue
+	//	we need to make sure it's in the correct
+	//	location
+	if (t->queue.next || (thread_queue.tail==t)) {
+		
+		bool high_before=true;
+		bool low_after=true;
+		bool after=false;
+		struct kthread * prev=0;
+		for (struct kthread * loc=thread_queue.head;loc!=0;loc=loc->queue.next) {
+			
+			if (loc==t) {
+				
+				after=true;
+				continue;
+				
+			}
+			
+			if (loc->queue.next==t) prev=loc;
+			
+			if (kthread_equal_priority(loc,t)) continue;
+			if (after) low_after=kthread_lower_priority(loc,t);
+			else high_before=kthread_higher_priority(loc,t);
+			
+		}
+		
+		//	In the correct place, we're done
+		if (high_before && low_after) return;
+		
+		//	Wrong place, remove and re-add
+		if (prev) {
+			
+			prev->queue.next=t->queue.next;
+			if (!prev->queue.next) thread_queue.tail=prev;
+			
+		} else {
+			
+			thread_queue.head=t->queue.next;
+			if (!thread_queue.head) thread_queue.tail=0;
+			
+		}
+		
+		t->queue.next=0;
+		
+		kthread_enqueue_impl(t);
+		
+		return;
+		
+	}
+	
+	//	New head
+	if (kthread_lower_priority(thread_queue.head,t)) {
+		
+		t->queue.next=thread_queue.head;
+		thread_queue.head=t;
+		
+		return;
+		
+	}
+	
+	//	Somewhere in the body
+	struct kthread * after=0;
+	for (struct kthread * loc=thread_queue.head;loc!=0;loc=loc->queue.next) {
+		
+		if (kthread_lower_priority(loc,t)) break;
+		after=loc;
+		
+	}
+	
+	t->queue.next=after->queue.next;
+	after->queue.next=t;
+	if (!t->queue.next) thread_queue.tail=t;
 	
 }
 
 
 static void kthread_enqueue (struct kthread * t) {
 	
-	if (t->state!=READY) return;
-	
-	//	We need to determine two or three things:
-	//
-	//	1.	Where should this task be (i.e. loc)
-	//	2.	Has this task already been inserted (i.e. dup)
-	//
-	//	If 2, we also need to determine if the task is
-	//	in the correct location for its current priority
-	//	(i.e. is_sorted)
-	bool is_sorted=true;
-	size_t dup=MAX_THREADS;
-	size_t loc=MAX_THREADS;
-	for (size_t i=0;i<MAX_THREADS;++i) {
+	//	If the first thread is running,
+	//	then we can't move it, so just remove/restore
+	struct kthread * restore=0;
+	if (thread_queue.head && (thread_queue.head->state==RUNNING)) {
 		
-		struct kthread * curr=thread_queue[i];
-		
-		if (curr==t) {
-			
-			dup=i;
-			
-		} else {
-			
-			//	Determine whether the priority of
-			//	this task is correct wrt the priority
-			//	of the incoming thread
-			if (loc==MAX_THREADS) {
-				
-				//	Priorities should all be larger
-				//	than or equal to the incoming thread's
-				//	since the incoming thread's position has
-				//	not been found yet
-				if (curr->priority<t->priority) is_sorted=false;
-				
-			} else {
-				
-				//	Priorities should all be smaller than
-				//	or equal to the incoming thread's since
-				//	the incoming thread's position has been
-				//	found (and is therefore ahead of the
-				//	current position in the queue)
-				if (curr->priority>t->priority) is_sorted=false;
-				
-			}
-			
-		}
-		
-		//	We already found the insertion point,
-		//	so we don't need to do anything else
-		if (loc!=MAX_THREADS) continue;
-		
-		//	This position should be ahead of the incoming
-		//	thread (assuming we insert the incoming thread
-		//	and don't keep its current position)
-		if (curr && (curr->start_routine!=&kidle) && (curr->priority>=t->priority)) continue;
-		
-		loc=i;
+		restore=thread_queue.head;
+		thread_queue.head=restore->queue.next;
+		if (!thread_queue.head) thread_queue.tail=0;
+		restore->queue.next=0;
 		
 	}
 	
-	//	If this thread is already in the queue
-	if (dup!=MAX_THREADS) {
+	kthread_enqueue_impl(t);
+	
+	if (restore) {
 		
-		//	If its current position is fine for
-		//	its current priority, that's great,
-		//	we're done
-		if (is_sorted) return;
-		
-		//	Otherwise we have to remove & re-insert
-		
-		//	The duplicate is infront of the insertion
-		//	location, removing it will move the insertion
-		//	location ahead one
-		if (dup<loc) --loc;
-		
-		struct kthread ** ptr=thread_queue;
-		ptr+=dup;
-		memmove(ptr,ptr+1,sizeof(struct kthread *)*(MAX_THREADS-1U-dup));
-		thread_queue[MAX_THREADS-1U]=0;
+		restore->queue.next=thread_queue.head;
+		if (!thread_queue.head) thread_queue.tail=restore;
+		thread_queue.head=restore;
 		
 	}
-	
-	//	Insert
-	struct kthread ** ptr=thread_queue;
-	ptr+=loc;
-	memmove(ptr+1U,ptr,sizeof(struct kthread *)*(MAX_THREADS-1U-loc));
-	thread_queue[loc]=t;
 	
 }
 
 
 static void kdispatch (void) {
 	
-	current_thread=kthread_dequeue();
-	kthread_enqueue(current_thread);
+	if (current_thread && (current_thread->state==RUNNING)) current_thread->state=READY;
+	
+	//	Loop until we find a viable thread to run
+	do {
+		
+		//	Pop
+		struct kthread * curr=thread_queue.head;
+		thread_queue.head=curr->queue.next;
+		if (!thread_queue.head) thread_queue.tail=0;
+		curr->queue.next=0;
+		
+		//	Re-enqueue previously running thread
+		kthread_enqueue(curr);
+		
+		//	Select front of queue as the current
+		//	thread (this decision will be evaluated
+		//	below)
+		current_thread=thread_queue.head;
+		
+	} while (current_thread->state!=READY);
+	
+	current_thread->state=RUNNING;
 	
 }
 
@@ -303,8 +369,8 @@ static void kthread_create (thread_t * thread, void (*f) (void *), priority_t pr
 static int kthread_init (void) {
 	
 	memset(threads,0,sizeof(threads));
-	memset(thread_queue,0,sizeof(thread_queue));
 	current_thread=0;
+	memset(&thread_queue,0,sizeof(thread_queue));
 	quantum_expired=false;
 	
 	//	Start idle task
