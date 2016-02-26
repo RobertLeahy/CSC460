@@ -57,18 +57,31 @@ static void error (void) {
 }
 
 
+struct state {
+	
+	event_t ping;
+	event_t pong;
+	
+};
+
+
 static void pong (void * arg) {
 	
-	mutex_t mutex=*((const mutex_t *)arg);
+	const struct state * s=(const struct state *)arg;
 	for (;;) {
-		
-		if (mutex_lock(mutex)!=0) error();
 		
 		on();
 		wait(3);
 		
-		if (mutex_unlock(mutex)!=0) error();
-		yield();
+		error_t err;
+		if (event_signal(s->pong,&err)!=0) {
+			
+			errno=err;
+			error();
+			
+		}
+		
+		if (event_wait(s->ping)!=0) error();
 		
 	}
 	
@@ -77,16 +90,21 @@ static void pong (void * arg) {
 
 static void ping (void * arg) {
 	
-	mutex_t mutex=*((const mutex_t *)arg);
+	const struct state * s=(const struct state *)arg;
 	for (;;) {
 		
-		if (mutex_lock(mutex)!=0) error();
+		if (event_wait(s->pong)!=0) error();
 		
 		off();
 		wait(3);
 		
-		if (mutex_unlock(mutex)!=0) error();
-		yield();
+		error_t err;
+		if (event_signal(s->ping,&err)!=0) {
+			
+			errno=err;
+			error();
+			
+		}
 		
 	}
 	
@@ -97,13 +115,14 @@ void rtos_main (void) {
 	
 	DDRB|=1<<PB7;
 	
-	mutex_t mutex;
+	struct state s;
 	if (
-		(mutex_create(&mutex)!=0) ||
+		(event_create(&s.ping)!=0) ||
+		(event_create(&s.pong)!=0) ||
 		(thread_set_priority(thread_self(),14)!=0) ||
-		(thread_create(0,ping,14,&mutex)!=0)
+		(thread_create(0,ping,14,&s)!=0)
 	) error();
 	
-	pong(&mutex);
+	pong(&s);
 	
 }

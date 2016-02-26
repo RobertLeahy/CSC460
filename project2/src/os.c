@@ -9,9 +9,7 @@
 
 error_t * get_last_error (void) {
 	
-	if (current_thread) return &current_thread->last_error;
-	
-	return &last_error;
+	return &current_thread->last_error;
 	
 }
 
@@ -19,9 +17,7 @@ error_t * get_last_error (void) {
 #ifdef DEBUG
 unsigned int get_last_syscall (void) {
 	
-	if (!current_thread) return 0;
-	
-	return current_thread->syscall.num;
+	return current_thread->last_syscall;
 	
 }
 #endif
@@ -107,6 +103,54 @@ int mutex_lock (mutex_t mutex) {
 int mutex_unlock (mutex_t mutex) {
 	
 	return mutex_helper(SYSCALL_MUTEX_UNLOCK,mutex);
+	
+}
+
+
+int event_create (event_t * event) {
+	
+	unsigned char buffer [sizeof(event)];
+	size_t i=0;
+	SYSCALL_PUSH(event,buffer,i);
+	
+	return syscall(SYSCALL_EVENT_CREATE,buffer,sizeof(buffer));
+	
+}
+
+
+static int event_helper (enum syscall sc, event_t event) {
+	
+	unsigned char buffer [sizeof(event)];
+	size_t i=0;
+	SYSCALL_PUSH(event,buffer,i);
+	
+	return syscall(sc,buffer,sizeof(buffer));
+	
+}
+
+
+int event_destroy (event_t event) {
+	
+	return event_helper(SYSCALL_EVENT_DESTROY,event);
+	
+}
+
+
+int event_wait (event_t event) {
+	
+	return event_helper(SYSCALL_EVENT_WAIT,event);
+	
+}
+
+
+int event_signal (event_t event, error_t * err) {
+	
+	unsigned char buffer [sizeof(event)+sizeof(err)];
+	size_t i=0;
+	SYSCALL_PUSH(event,buffer,i);
+	SYSCALL_PUSH(err,buffer,i);
+	
+	return syscall(SYSCALL_EVENT_SIGNAL,buffer,sizeof(buffer));
 	
 }
 

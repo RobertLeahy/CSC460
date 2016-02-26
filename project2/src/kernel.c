@@ -1,3 +1,4 @@
+#include <avr/common.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include <kernel.h>
@@ -9,6 +10,7 @@
 
 #define MAX_THREADS (4U)
 #define MAX_MUTEXES (8U)
+#define MAX_EVENTS (8U)
 //	This is the number of bytes that are
 //	popped when restoring a context:
 //
@@ -30,9 +32,16 @@
 
 static struct kthread threads [MAX_THREADS];
 struct kthread * current_thread;
-error_t last_error;
+static error_t last_error;
 void * ksp;
 static bool quantum_expired;
+static struct {
+	
+	enum syscall num;
+	void * args;
+	size_t len;
+	
+} syscall_state;
 
 
 struct kthread_linked_list {
@@ -55,6 +64,16 @@ struct kmutex {
 static struct kmutex mutexes [MAX_MUTEXES];
 
 
+struct kevent {
+	
+	bool valid;
+	bool set;
+	struct kthread * wait;
+	
+};
+static struct kevent events [MAX_EVENTS];
+
+
 //	These are provided in assembly
 void kenter (void);
 void kexit (void);
@@ -71,7 +90,7 @@ static void kidle (void * arg) {
 }
 
 
-//	Initializes global errno to ENONE
+//	Initializes last_error to ENONE
 static int klast_error_init (void) {
 	
 	last_error=ENONE;
@@ -85,6 +104,16 @@ static int klast_error_init (void) {
 static int kmutex_init (void) {
 	
 	memset(mutexes,0,sizeof(mutexes));
+	
+	return 0;
+	
+}
+
+
+//	Initializes events
+static int kevent_init (void) {
+	
+	memset(events,0,sizeof(events));
 	
 	return 0;
 	
@@ -299,7 +328,7 @@ static void kthread_create (thread_t * thread, void (*f) (void *), priority_t pr
 	//	are MAX_THREADS threads running
 	if (avail==MAX_THREADS) {
 		
-		errno=EAGAIN;
+		last_error=EAGAIN;
 		return;
 		
 	}
@@ -330,7 +359,7 @@ static void kthread_create (thread_t * thread, void (*f) (void *), priority_t pr
 	
 	//	Return values to caller
 	if (thread) *thread=avail;
-	errno=ENONE;
+	last_error=ENONE;
 	
 }
 
@@ -360,7 +389,8 @@ static int kinit (void) {
 		(kthread_init()!=0) ||
 		(klast_error_init()!=0) ||
 		(ktimer_init()!=0) ||
-		(kmutex_init()!=0)
+		(kmutex_init()!=0) ||
+		(kevent_init()!=0)
 	) return -1;
 	
 	return 0;
@@ -373,7 +403,7 @@ static void kthread_set_priority (thread_t thread, priority_t prio) {
 	//	The idle thread is always thread zero
 	if ((thread>MAX_THREADS) || (thread==0) || (threads[thread].state==DEAD)) {
 		
-		errno=EINVAL;
+		last_error=EINVAL;
 		return;
 		
 	}
@@ -444,7 +474,7 @@ static void kmutex_create (mutex_t * mutex) {
 	for (m=0;m<MAX_MUTEXES;++m) if (!mutexes[m].valid) break;
 	if (m==MAX_MUTEXES) {
 		
-		errno=EAGAIN;
+		last_error=EAGAIN;
 		return;
 		
 	}
@@ -463,7 +493,7 @@ static struct kmutex * kmutex_get (mutex_t mutex) {
 	
 	if (mutex>=MAX_MUTEXES) {
 		
-		errno=EINVAL;
+		last_error=EINVAL;
 		return 0;
 		
 	}
@@ -472,7 +502,7 @@ static struct kmutex * kmutex_get (mutex_t mutex) {
 	
 	if (!retr->valid) {
 		
-		errno=EINVAL;
+		last_error=EINVAL;
 		return 0;
 		
 	}
@@ -511,7 +541,7 @@ static void kmutex_lock (mutex_t mutex) {
 	//	TODO: Make mutex recursive
 	if (curr->queue.head==current_thread) {
 		
-		errno=EDEADLK;
+		last_error=EDEADLK;
 		return;
 		
 	}
@@ -530,12 +560,121 @@ static void kmutex_unlock (mutex_t mutex) {
 	
 	if (current_thread!=curr->queue.head) {
 		
-		errno=EPERM;
+		last_error=EPERM;
 		return;
 		
 	}
 	
 	kthread_wait_pop(&curr->queue);
+	
+}
+
+
+static void kevent_create (event_t * event) {
+	
+	event_t e;
+	for (e=0;e<MAX_EVENTS;++e) if (!events[e].valid) break;
+	if (e==MAX_EVENTS) {
+		
+		last_error=EAGAIN;
+		return;
+		
+	}
+	
+	struct kevent * ev=&events[e];
+	memset(ev,0,sizeof(*ev));
+	ev->valid=true;
+	*event=e;
+	
+}
+
+
+//	Returns a pointer to the kernel event object
+//	if the handle is valid, NULL and sets EINVAL
+//	otherwise
+static struct kevent * kevent_get (event_t event) {
+	
+	if (event>=MAX_EVENTS) {
+		
+		last_error=EINVAL;
+		return 0;
+		
+	}
+	
+	struct kevent * retr=&events[event];
+	
+	if (!retr) {
+		
+		last_error=EINVAL;
+		return 0;
+		
+	}
+	
+	return retr;
+	
+}
+
+
+static void kevent_destroy (event_t event) {
+	
+	struct kevent * e=kevent_get(event);
+	if (!e) return;
+	
+	//	If there's a thread waiting that's undefined
+	//	behaviour, too bad
+	e->valid=false;
+	
+}
+
+
+static void kevent_wait (event_t event) {
+	
+	struct kevent * e=kevent_get(event);
+	if (!e) return;
+	
+	//	Event already signalled, return at
+	//	once
+	if (e->set) {
+		
+		e->set=false;
+		return;
+		
+	}
+	
+	//	Another thread is already waiting
+	if (e->wait) {
+		
+		last_error=EBUSY;
+		return;
+		
+	}
+	
+	//	Wait
+	e->wait=current_thread;
+	current_thread->state=BLOCKED;
+	kdispatch();
+	
+}
+
+
+static void kevent_signal (event_t event) {
+	
+	struct kevent * e=kevent_get(event);
+	if (!e) return;
+	
+	//	There's a thread waiting just
+	//	release it
+	if (e->wait) {
+		
+		e->wait->state=READY;
+		kthread_enqueue(e->wait);
+		e->wait=0;
+		
+		return;
+		
+	}
+	
+	e->set=true;
 	
 }
 
@@ -562,12 +701,11 @@ static int kstart (void) {
 			
 		}
 		
-		current_thread->last_error=ENONE;
+		last_error=ENONE;
 		
-		struct ksyscall_state * state=&current_thread->syscall;
-		enum syscall num=state->num;
-		void * args=state->args;
-		size_t len=state->len;
+		enum syscall num=syscall_state.num;
+		void * args=syscall_state.args;
+		size_t len=syscall_state.len;
 		size_t i=0;
 		switch (num) {
 			
@@ -653,8 +791,46 @@ static int kstart (void) {
 				
 			}break;
 			
+			case SYSCALL_EVENT_CREATE:{
+				
+				if (len!=sizeof(event_t *)) goto invalid_length;
+				
+				event_t * event;
+				SYSCALL_POP(event,args,i);
+				
+				kevent_create(event);
+				
+			}break;
+			
+			case SYSCALL_EVENT_DESTROY:
+			case SYSCALL_EVENT_WAIT:{
+				
+				if (len!=sizeof(event_t)) goto invalid_length;
+				
+				event_t event;
+				SYSCALL_POP(event,args,i);
+				
+				if (num==SYSCALL_EVENT_DESTROY) kevent_destroy(event);
+				else kevent_wait(event);
+				
+			}break;
+			
+			case SYSCALL_EVENT_SIGNAL:{
+				
+				if (len!=(sizeof(event_t)+sizeof(error_t *))) goto invalid_length;
+				
+				event_t event;
+				SYSCALL_POP(event,args,i);
+				error_t * err;
+				SYSCALL_POP(err,args,i);
+				
+				kevent_signal(event);
+				if (err) *err=last_error;
+				
+			}break;
+			
 			default:
-				current_thread->last_error=EINVAL;
+				last_error=EINVAL;
 				break;
 			
 		}
@@ -662,7 +838,7 @@ static int kstart (void) {
 		continue;
 		
 		invalid_length:
-		current_thread->last_error=EINVAL;
+		last_error=EINVAL;
 		
 	}
 	
@@ -696,13 +872,26 @@ int main (void) {
 
 int syscall (enum syscall num, void * args, size_t len) {
 	
-	struct ksyscall_state * s=&current_thread->syscall;
-	s->num=num;
-	s->args=args;
-	s->len=len;
+	unsigned char sreg=SREG;
+	disable_interrupt();
+	
+	syscall_state.num=num;
+	syscall_state.args=args;
+	syscall_state.len=len;
 	kenter();
 	
-	return (errno==ENONE) ? 0 : -1;
+	bool success=last_error==ENONE;
+	
+	if (num!=SYSCALL_EVENT_SIGNAL) {
+		
+		current_thread->last_error=last_error;
+		current_thread->last_syscall=num;
+		
+	}
+	
+	if ((sreg&128U)!=0) enable_interrupt();
+	
+	return success ? 0 : -1;
 	
 }
 

@@ -40,7 +40,8 @@ typedef enum {
 	EAGAIN,
 	EINVAL,
 	EPERM,
-	EDEADLK
+	EDEADLK,
+	EBUSY
 } error_t;
 error_t * get_last_error (void);
 /**
@@ -155,6 +156,80 @@ int mutex_lock (mutex_t mutex);
  *		0 if this call succeeds, -1 otherwise.
  */
 int mutex_unlock (mutex_t mutex);
+
+
+/**
+ *	Creates an event.
+ *
+ *	\param [out] event
+ *		A pointer to an event handle which will be
+ *		initialized if the call succeeds.  If the call
+ *		fails this shall not be modified.  May not be
+ *		\em NULL.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int event_create (event_t * event);
+/**
+ *	Destroys an event.
+ *
+ *	If the event currently has a thread waiting on it
+ *	the behaviour is undefined.
+ *
+ *	This call shall only fail if \em event does not
+ *	represent a valid event.
+ *
+ *	\param [in] event
+ *		An event handle representing the event to be
+ *		destroyed.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int event_destroy (event_t event);
+/**
+ *	Waits for an event.
+ *
+ *	If the event has already occurred control will
+ *	return to the calling thread immediately,
+ *	otherwise the thread will block until the event
+ *	occurs.
+ *
+ *	This call shall only fail if \em event does not
+ *	represent a valid event or if some other thread
+ *	is already waiting on the event.
+ *
+ *	\param [in] event
+ *		An event handle representing the event to
+ *		wait for.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int event_wait (event_t event);
+/**
+ *	Signals an event.
+ *
+ *	This function is safe to call from an interrupt
+ *	service routine.
+ *
+ *	This function does not set \em errno.
+ *
+ *	This call shall only fail if \em event does not
+ *	represent a valid event.
+ *
+ *	\param [in] event
+ *		The event to signal.
+ *	\param [out] err
+ *		A pointer to an error code which shall receive
+ *		an error code indicating the result of the
+ *		function call.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int event_signal (event_t event, error_t * err);
 
 
 /**

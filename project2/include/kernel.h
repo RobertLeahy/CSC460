@@ -42,31 +42,11 @@ enum syscall {
 	SYSCALL_MUTEX_CREATE,
 	SYSCALL_MUTEX_DESTROY,
 	SYSCALL_MUTEX_LOCK,
-	SYSCALL_MUTEX_UNLOCK
-	
-};
-
-
-/**
- *	Represents the syscall state of a thread.
- */
-struct ksyscall_state {
-	
-	/**
-	 *	The syscall which was made last by the
-	 *	thread.
-	 */
-	enum syscall num;
-	/**
-	 *	A pointer to a buffer containing the arguments
-	 *	to the syscall (if any).
-	 */
-	void * args;
-	/**
-	 *	The length of the buffer pointer to by \em args
-	 *	in bytes.
-	 */
-	size_t len;
+	SYSCALL_MUTEX_UNLOCK,
+	SYSCALL_EVENT_CREATE,
+	SYSCALL_EVENT_DESTROY,
+	SYSCALL_EVENT_WAIT,
+	SYSCALL_EVENT_SIGNAL
 	
 };
 
@@ -107,19 +87,17 @@ struct kthread {
 	 */
 	void * arg;
 	/**
-	 *	Indicates the status of the last syscall
-	 *	on this thread.
-	 */
-	error_t last_error;
-	/**
 	 *	Indicates the priority of this thread.
 	 */
 	priority_t priority;
 	/**
-	 *	A structure which represents the last syscall
-	 *	executed on this thread.
+	 *	The last error which occurred on the thread.
 	 */
-	struct ksyscall_state syscall;
+	error_t last_error;
+	/**
+	 *	The last syscall which was made on this thread.
+	 */
+	enum syscall last_syscall;
 	
 	//	Implementation details
 	struct kthread_node queue;
@@ -133,11 +111,6 @@ struct kthread {
  *	if there is no current thread.
  */
 extern struct kthread * current_thread;
-/**
- *	The address of the lvalue yielded by the \em errno
- *	macro when \em current_thread is \em NULL.
- */
-extern error_t last_error;
 
 
 /**
