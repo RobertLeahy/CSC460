@@ -8,7 +8,7 @@
 #include <string.h>
 
 
-#define MAX_THREADS (4U)
+#define MAX_THREADS (17U)	//	16 plus 1 for the dummy idle thread
 #define MAX_MUTEXES (8U)
 #define MAX_EVENTS (8U)
 //	This is the number of bytes that are
