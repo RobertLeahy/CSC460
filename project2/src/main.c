@@ -73,15 +73,10 @@ static void pong (void * arg) {
 		on();
 		wait(3);
 		
-		error_t err;
-		if (event_signal(s->pong,&err)!=0) {
-			
-			errno=err;
-			error();
-			
-		}
-		
-		if (event_wait(s->ping)!=0) error();
+		if (
+			(event_signal(s->pong)!=0) ||
+			(event_wait(s->ping)!=0)
+		) error();
 		
 	}
 	
@@ -98,13 +93,7 @@ static void ping (void * arg) {
 		off();
 		wait(3);
 		
-		error_t err;
-		if (event_signal(s->ping,&err)!=0) {
-			
-			errno=err;
-			error();
-			
-		}
+		if (event_signal(s->ping)!=0) error();
 		
 	}
 	

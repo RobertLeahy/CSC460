@@ -211,13 +211,24 @@ int event_wait (event_t event);
 /**
  *	Signals an event.
  *
- *	This function is safe to call from an interrupt
- *	service routine.
+ *	This call shall only fail if \em event does not
+ *	represent a valid event.
  *
- *	This function does not set \em errno.
+ *	\param [in] event
+ *		The event to signal.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int event_signal (event_t event);
+/**
+ *	Signals an event.
  *
  *	This call shall only fail if \em event does not
  *	represent a valid event.
+ *
+ *	This function is reentrant and as such does not
+ *	set \em errno.
  *
  *	\param [in] event
  *		The event to signal.
@@ -229,7 +240,7 @@ int event_wait (event_t event);
  *	\return
  *		0 if this call succeeds, -1 otherwise.
  */
-int event_signal (event_t event, error_t * err);
+int event_signal_r (event_t event, error_t * err);
 
 
 /**

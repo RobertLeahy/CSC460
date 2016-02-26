@@ -143,7 +143,18 @@ int event_wait (event_t event) {
 }
 
 
-int event_signal (event_t event, error_t * err) {
+int event_signal (event_t event) {
+	
+	error_t err;
+	int retr=event_signal_r(event,&err);
+	errno=err;
+	
+	return retr;
+	
+}
+
+
+int event_signal_r (event_t event, error_t * err) {
 	
 	unsigned char buffer [sizeof(event)+sizeof(err)];
 	size_t i=0;
