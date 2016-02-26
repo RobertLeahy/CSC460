@@ -103,7 +103,7 @@ int thread_set_priority (thread_t thread, priority_t prio);
  *
  *	\param [out] mutex
  *		A pointer to a mutex handle which will be
- *		initialized in the call succeeds.  If the call
+ *		initialized if the call succeeds.  If the call
  *		fails this shall not be modified.  May not be
  *		\em NULL.
  *
