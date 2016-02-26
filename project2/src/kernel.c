@@ -568,6 +568,7 @@ static int kstart (void) {
 		enum syscall num=state->num;
 		void * args=state->args;
 		size_t len=state->len;
+		size_t i=0;
 		switch (num) {
 			
 			case SYSCALL_YIELD:
@@ -578,7 +579,6 @@ static int kstart (void) {
 				
 				if (len!=(sizeof(thread_t *)+sizeof(void (*) (void *))+sizeof(priority_t)+sizeof(void *))) goto invalid_length;
 				
-				size_t i=0;
 				thread_t * thread;
 				SYSCALL_POP(thread,args,i);
 				void (*f) (void *);
@@ -596,7 +596,6 @@ static int kstart (void) {
 				
 				if (len!=sizeof(thread_t *)) goto invalid_length;
 				
-				size_t i=0;
 				thread_t * retr;
 				SYSCALL_POP(retr,args,i);
 				struct kthread * begin=threads;
@@ -608,7 +607,6 @@ static int kstart (void) {
 				
 				if (len!=(sizeof(thread_t)+sizeof(priority_t))) goto invalid_length;
 				
-				size_t i=0;
 				thread_t thread;
 				SYSCALL_POP(thread,args,i);
 				priority_t prio;
@@ -622,7 +620,6 @@ static int kstart (void) {
 				
 				if (len!=sizeof(mutex_t *)) goto invalid_length;
 				
-				size_t i=0;
 				mutex_t * mutex;
 				SYSCALL_POP(mutex,args,i);
 				
@@ -636,7 +633,6 @@ static int kstart (void) {
 				
 				if (len!=sizeof(mutex_t)) goto invalid_length;
 				
-				size_t i=0;
 				mutex_t mutex;
 				SYSCALL_POP(mutex,args,i);
 				
