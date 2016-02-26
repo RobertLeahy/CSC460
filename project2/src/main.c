@@ -114,6 +114,7 @@ static void ping (void * arg) {
 void rtos_main (void) {
 	
 	DDRB|=1<<PB7;
+	off();
 	
 	struct state s;
 	if (
