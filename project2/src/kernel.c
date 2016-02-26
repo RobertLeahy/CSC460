@@ -157,9 +157,7 @@ static bool kthread_equal_priority (struct kthread * a, struct kthread * b) {
 static void kthread_enqueue_impl (struct kthread * t) {
 	
 	//	Ignore threads that are not ready to
-	//	run (we can ignore running threads because
-	//	they will be re-enqueued at the end of their
-	//	time slice
+	//	run
 	if (t->state!=READY) return;
 	
 	//	No threads in the queue add this one as the
@@ -249,55 +247,27 @@ static void kthread_enqueue_impl (struct kthread * t) {
 
 static void kthread_enqueue (struct kthread * t) {
 	
-	//	If the first thread is running,
-	//	then we can't move it, so just remove/restore
-	struct kthread * restore=0;
-	if (thread_queue.head && (thread_queue.head->state==RUNNING)) {
-		
-		restore=thread_queue.head;
-		thread_queue.head=restore->queue.next;
-		if (!thread_queue.head) thread_queue.tail=0;
-		restore->queue.next=0;
-		
-	}
-	
 	kthread_enqueue_impl(t);
-	
-	if (restore) {
-		
-		restore->queue.next=thread_queue.head;
-		if (!thread_queue.head) thread_queue.tail=restore;
-		thread_queue.head=restore;
-		
-	}
+	current_thread=thread_queue.head;
 	
 }
 
 
 static void kdispatch (void) {
 	
-	if (current_thread && (current_thread->state==RUNNING)) current_thread->state=READY;
-	
 	//	Loop until we find a viable thread to run
 	do {
 		
 		//	Pop
 		struct kthread * curr=thread_queue.head;
-		thread_queue.head=curr->queue.next;
+		current_thread=thread_queue.head=curr->queue.next;
 		if (!thread_queue.head) thread_queue.tail=0;
 		curr->queue.next=0;
 		
 		//	Re-enqueue previously running thread
 		kthread_enqueue(curr);
 		
-		//	Select front of queue as the current
-		//	thread (this decision will be evaluated
-		//	below)
-		current_thread=thread_queue.head;
-		
 	} while (current_thread->state!=READY);
-	
-	current_thread->state=RUNNING;
 	
 }
 
@@ -445,6 +415,7 @@ static void kthread_wait_insert (struct kthread_linked_list * ll, struct kthread
 	//	Being inserted into the wait queue means
 	//	you're blocked
 	t->state=BLOCKED;
+	if (t==current_thread) kdispatch();
 	
 	t->wait.next=after->wait.next;
 	after->wait.next=t;
@@ -566,9 +537,6 @@ static void kmutex_unlock (mutex_t mutex) {
 	
 	kthread_wait_pop(&curr->queue);
 	
-	//	TODO: Reschedule if higher priority
-	//	thread was waiting?
-	
 }
 
 
@@ -577,16 +545,19 @@ static void kmutex_unlock (mutex_t mutex) {
 
 static int kstart (void) {
 	
-	for (bool dispatch=true;;) {
+	//	Get an initial thread
+	kdispatch();
+	
+	for (;;) {
 		
-		if (dispatch || (current_thread->state!=READY)) kdispatch();
-		dispatch=false;
+		current_thread->state=RUNNING;
 		kexit();
+		if (current_thread->state==RUNNING) current_thread->state=READY;
 		
 		if (quantum_expired) {
 			
 			quantum_expired=false;
-			dispatch=true;
+			kdispatch();
 			continue;
 			
 		}
@@ -600,7 +571,7 @@ static int kstart (void) {
 		switch (num) {
 			
 			case SYSCALL_YIELD:
-				dispatch=true;
+				kdispatch();
 				break;
 				
 			case SYSCALL_THREAD_CREATE:{
