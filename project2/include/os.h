@@ -37,11 +37,11 @@ typedef unsigned int tick_t;
  */
 typedef enum {
 	ENONE=0,
-	EAGAIN,
-	EINVAL,
-	EPERM,
-	EDEADLK,
-	EBUSY
+	EAGAIN=1,
+	EINVAL=2,
+	EPERM=3,
+	EDEADLK=4,
+	EBUSY=5
 } error_t;
 error_t * get_last_error (void);
 /**
