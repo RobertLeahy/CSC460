@@ -58,6 +58,7 @@ static struct kthread_linked_list thread_queue;
 struct kmutex {
 	
 	bool valid;
+	struct kthread * owner;
 	struct kthread_linked_list queue;
 	
 };
@@ -418,16 +419,11 @@ static void kthread_set_priority (thread_t thread, priority_t prio) {
 
 static struct kthread * kthread_wait_pop (struct kthread_linked_list * ll) {
 	
-	struct kthread * retr=ll->head->wait.next;
-	ll->head->wait.next=0;
-	ll->head=retr;
-	if (!retr) {
-		
-		ll->tail=0;
-		
-		return 0;
-		
-	}
+	struct kthread * retr=ll->head;
+	if (!retr) return 0;
+	ll->head=retr->wait.next;
+	retr->wait.next=0;
+	if (!ll->head) ll->tail=0;
 	
 	//	If we pop a thread off the waiting queue
 	//	it's ready to run again, so set its state
@@ -447,14 +443,31 @@ static void kthread_wait_insert (struct kthread_linked_list * ll, struct kthread
 	t->state=BLOCKED;
 	if (t==current_thread) kdispatch();
 	
-	t->wait.next=after->wait.next;
-	after->wait.next=t;
+	if (after) {
+		
+		t->wait.next=after->wait.next;
+		after->wait.next=t;
+		
+	} else {
+		
+		t->wait.next=ll->head;
+		ll->head=t;
+		
+	}
+	
 	if (!t->wait.next) ll->tail=t;
 	
 }
 
 
 static void kthread_wait_prio_push (struct kthread_linked_list * ll, struct kthread * t) {
+	
+	if (!ll->head || (ll->head->priority<t->priority)) {
+		
+		kthread_wait_insert(ll,0,t);
+		return;
+		
+	}
 	
 	struct kthread * loc;
 	for (loc=ll->head;loc->wait.next!=0;loc=loc->wait.next) {
@@ -531,15 +544,15 @@ static void kmutex_lock (mutex_t mutex) {
 	
 	//	Unowned, current thread becomes owner
 	//	at once
-	if (!curr->queue.head) {
+	if (!curr->owner) {
 		
-		curr->queue.tail=curr->queue.head=current_thread;
+		curr->owner=current_thread;
 		return;
 		
 	}
 	
 	//	TODO: Make mutex recursive
-	if (curr->queue.head==current_thread) {
+	if (curr->owner==current_thread) {
 		
 		last_error=EDEADLK;
 		return;
@@ -558,14 +571,14 @@ static void kmutex_unlock (mutex_t mutex) {
 	struct kmutex * curr=kmutex_get(mutex);
 	if (!curr) return;
 	
-	if (current_thread!=curr->queue.head) {
+	if (current_thread!=curr->owner) {
 		
 		last_error=EPERM;
 		return;
 		
 	}
 	
-	kthread_wait_pop(&curr->queue);
+	curr->owner=kthread_wait_pop(&curr->queue);
 	
 }
 
