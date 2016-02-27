@@ -46,7 +46,8 @@ enum syscall {
 	SYSCALL_EVENT_CREATE=8,
 	SYSCALL_EVENT_DESTROY=9,
 	SYSCALL_EVENT_WAIT=10,
-	SYSCALL_EVENT_SIGNAL=11
+	SYSCALL_EVENT_SIGNAL=11,
+	SYSCALL_SLEEP=12
 	
 };
 
@@ -56,6 +57,17 @@ struct kthread;
 struct kthread_node {
 	
 	struct kthread * next;
+	
+};
+
+
+//	Implementation detail
+struct ktime {
+	
+	_Static_assert(sizeof(unsigned long long)>=4,"unsigned long long is not sufficiently wide");
+	unsigned long long overflows;
+	_Static_assert(sizeof(unsigned int)==2,"unsigned int is not exactly 16 bits");
+	unsigned int remainder;
 	
 };
 
@@ -102,6 +114,7 @@ struct kthread {
 	//	Implementation details
 	struct kthread_node queue;
 	struct kthread_node wait;
+	struct ktime sleep;
 	
 };
 

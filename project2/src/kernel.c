@@ -59,7 +59,9 @@ static struct kthread threads [MAX_THREADS];
 struct kthread * current_thread;
 static error_t last_error;
 static void * __attribute__((used)) ksp;
+static bool maintain_sleep;
 static bool quantum_expired;
+static unsigned long long overflows;
 static struct {
 	
 	enum syscall num;
@@ -78,6 +80,7 @@ struct kthread_linked_list {
 
 
 static struct kthread_linked_list thread_queue;
+static struct kthread_linked_list sleep_queue;
 
 
 struct kmutex {
@@ -356,8 +359,16 @@ static int kevent_init (void) {
 }
 
 
-//	Sets up timer for scheduling
+//	Sets up timer for scheduling and
+//	sleep
 static int ktimer_init (void) {
+	
+	overflows=0;
+	memset(&sleep_queue,0,sizeof(sleep_queue));
+	maintain_sleep=false;
+	
+	//	Timer 1 (16 bit)
+	//	Scheduling timer
 	
 	TCCR1A=0;
 	TCCR1B=0;
@@ -380,6 +391,26 @@ static int ktimer_init (void) {
 	#endif
 	
 	TIMSK1|=(1<<OCIE1A);
+	
+	//	Timer 3
+	//	Sleep timer
+	
+	TCCR3A=0;
+	TCCR3B=0;
+	
+	TCCR3B&=~(1<<CS32);
+	TCCR3B|=1<<CS31;
+	TCCR3B|=1<<CS30;
+	//	When adjusting the prescalar
+	//	for this timer this value must
+	//	be adjusted as well
+	#define NANOSECONDS_PER_TICK (4000U)
+	#define TICKS_PER_SECOND (250000UL)
+	
+	TCNT3=0;
+	
+	//	We want to count timer overflows
+	TIMSK3=1<<TOIE3;
 	
 	return 0;
 	
@@ -658,6 +689,11 @@ static int kinit (void) {
 	//	We do not start in an ISR...
 	PORTA&=~(1<<PA2);
 	
+	//	Port 25: High whenever sleep timer
+	//	overflow occurs
+	DDRA|=1<<PA3;
+	PORTA&=~(1<<PA3);
+	
 	//	Port 26: Signals syscalls
 	DDRA|=1<<PA4;
 	PORTA&=~(1<<PA4);
@@ -666,6 +702,16 @@ static int kinit (void) {
 	//	on each exit from the kernel
 	DDRA|=1<<PA5;
 	PORTA&=~(1<<PA5);
+	
+	//	Port 28: High as long as kmaintain_sleep
+	//	is running
+	PORTA&=~(1<<PA6);
+	DDRA|=1<<PA6;
+	
+	//	Port 29: High whenever sleep timer
+	//	compare interrupt occurs
+	DDRA|=1<<PA7;
+	PORTA&=~(1<<PA7);
 	
 	#endif
 	
@@ -980,6 +1026,235 @@ static void kevent_signal (event_t event) {
 }
 
 
+static struct ktime know (void) {
+	
+	//	Grab the state so it's as fresh as
+	//	possible for detecting/compensating
+	//	for an overflow
+	struct ktime retr;
+	retr.remainder=TCNT3;
+	unsigned char i=TIFR3;
+	retr.overflows=overflows;
+	
+	//	Now we check for a pending interrupt
+	//	(this means that the global overflows
+	//	variable is one lower than it should be)
+	if ((i&(1<<TOV3))!=0) {
+		
+		++retr.overflows;
+		
+		//	There's a possibility that the following
+		//	has happened:
+		//
+		//	1.	We sample TCNT3 and it's about to
+		//		overflow (e.g. is 65535)
+		//	2.	The timer ticks, overflowing and
+		//		setting TOV3 in TIFR3
+		//	3.	We read TIFR3
+		//	4.	Based on TIFR3 we increment the number
+		//		of overflows
+		//
+		//	In this case we'll have an extremely
+		//	high remainder and an overflow one
+		//	higher than it should be: I.e. a time
+		//	that's not "now" but is ~65000 ticks
+		//	in the future
+		//
+		//	We detect this situation by resampling
+		//	TCNT3 and seeing if it's decreased, if
+		//	it has we accept the new sample
+		unsigned int resample=TCNT3;
+		if (resample<retr.remainder) retr.remainder=resample;
+		
+	}
+	
+	return retr;
+	
+}
+
+
+static struct ktime ktime_add (struct ktime a, struct ktime b) {
+	
+	if ((65535U-b.remainder)<a.remainder) ++a.overflows;
+	a.remainder+=b.remainder;
+	a.overflows+=b.overflows;
+	
+	return a;
+	
+}
+
+
+//	Returns:
+//
+//	-	Negative integer if a is less than b
+//	-	Zero if a and b are equal
+//	-	Positive integer if a is greater than b
+static int ktime_cmp (struct ktime a, struct ktime b) {
+	
+	if (a.overflows<b.overflows) return -1;
+	if (a.overflows>b.overflows) return 1;
+	
+	if (a.remainder<b.remainder) return -1;
+	if (a.remainder>b.remainder) return 1;
+	
+	return 0;
+	
+}
+
+
+static struct ktime kto_time (struct timespec ts) {
+	
+	//	We sample "now" as early as possible
+	//	to make sure our calculation is as accurate
+	//	relative to when this function was called
+	//	as possible
+	struct ktime retr=know();
+	
+	//	Calculate nanoseconds contribution
+	struct ktime ns;
+	unsigned long ns_ticks=ts.tv_nsec/NANOSECONDS_PER_TICK;
+	ns.remainder=ns_ticks%65536UL;
+	ns.overflows=ns_ticks/65536UL;
+	
+	//	Calculate seconds contribution
+	struct ktime s;
+	unsigned long long os_per_s=TICKS_PER_SECOND/65536UL;
+	//	Note choice of higher precision to prevent overflow
+	unsigned long ticks_per_s=TICKS_PER_SECOND%65536UL;
+	s.overflows=ts.tv_sec*os_per_s;
+	ticks_per_s*=ts.tv_sec;
+	s.overflows+=ticks_per_s%65536UL;
+	s.remainder=ticks_per_s/65536UL;
+	
+	return ktime_add(retr,ktime_add(s,ns));
+	
+}
+
+
+#define ksleep_overflow_pending() ((TIFR3&(1<<TOV3))!=0)
+#define ksleep_tick_pending() ((TIFR3&(1<<OCF3A))!=0)
+#define ksleep_enable_tick(cnt) do { OCR3A=(cnt);TIMSK3|=1<<OCIE3A; } while (0)
+#define ksleep_disable_tick() do { TIMSK3&=~(1<<OCIE3A);TIFR3=1<<OCF3A; } while (0)
+#define ksleep_no_work() (!sleep_queue.head || (sleep_queue.head->sleep.overflows>overflows))
+
+
+//	Maintains sleep-related data structures et cetera
+static void kmaintain_sleep_impl (void) {
+	
+	for (;;) {
+		
+		//	If we need an interrupt we'll set it up
+		//	later
+		ksleep_disable_tick();
+		
+		//	If there are no sleeping threads,
+		//	or the first sleeping thread doesn't wake
+		//	up this overflow cycle, there's nothing to do
+		if (ksleep_no_work()) return;
+		
+		//	Sample current number of ticks
+		unsigned int ticks=TCNT3;
+		//	If an overflow interrupt is pending just
+		//	wait for that
+		if (ksleep_overflow_pending()) return;
+		
+		//	Now we have a number of ticks, and we know
+		//	that number of ticks wasn't affected by
+		//	overflow, let's use it to pop threads
+		struct ktime now;
+		now.overflows=overflows;
+		now.remainder=ticks;
+		while (sleep_queue.head && (ktime_cmp(now,sleep_queue.head->sleep)>=0)) {
+			
+			kthread_enqueue(kthread_wait_pop(&sleep_queue));
+			
+		}
+		
+		//	If we emptied the queue there's nothing left
+		//	to do exit at once
+		if (ksleep_no_work()) return;
+		
+		//	Now we know there's at least one sleeping thread,
+		//	AND that it wakes up this overflow cycle
+		
+		unsigned int next=sleep_queue.head->sleep.remainder;
+		ticks=TCNT3;
+		//	Overflow interrupt pending, deal with it then
+		if (ksleep_overflow_pending()) return;
+		//	The time has already come, loop and dequeue
+		if (ticks>=next) continue;
+		
+		//	Setup interrupt
+		ksleep_enable_tick(next);
+		ticks=TCNT3;
+		//	Did an overflow interrupt become pending while
+		//	we were setting up the interrupt?  If so just
+		//	handle this there
+		if (ksleep_overflow_pending()) {
+			
+			ksleep_disable_tick();
+			return;
+			
+		}
+		//	Did the time come while we were setting up the
+		//	interrupt?  If so handle it here
+		if (ticks>=next) continue;
+		
+		//	We're done!
+		return;
+		
+	}
+	
+}
+
+
+static void kmaintain_sleep (void) {
+	
+	PORTA|=1<<PA6;
+	
+	kmaintain_sleep_impl();
+	
+	PORTA&=~(1<<PA6);
+	
+}
+
+
+static void ksleep (struct timespec ts) {
+	
+	current_thread->sleep=kto_time(ts);
+	
+	//	Head of the sleep queue
+	if (!sleep_queue.head || (ktime_cmp(current_thread->sleep,sleep_queue.head->sleep)<0)) {
+		
+		kthread_wait_insert(&sleep_queue,0,current_thread);
+		
+		//	We're the new head of the sleep queue so
+		//	everything has to be setup again to be right
+		//	for us
+		kmaintain_sleep();
+		
+		return;
+		
+	}
+	
+	//	Find position in sleep queue
+	struct kthread * loc;
+	for (loc=sleep_queue.head;loc->wait.next!=0;loc=loc->wait.next) {
+		
+		if (ktime_cmp(current_thread->sleep,loc->wait.next->sleep)<0) break;
+		
+	}
+	
+	kthread_wait_insert(&sleep_queue,loc,current_thread);
+	
+	//	We don't have to do anything extra here because
+	//	the kernel is waiting on the first element of
+	//	the sleep queue.  Since the first element of the
+	//	sleep queue isn't us we're good: Nothing changes
+	
+}
+
+
 #ifdef DEBUG
 static void ksignal_syscall (enum syscall s) {
 	
@@ -1011,6 +1286,14 @@ static int kstart (void) {
 		current_thread->state=RUNNING;
 		kexit();
 		if (current_thread->state==RUNNING) current_thread->state=READY;
+		
+		if (maintain_sleep) {
+			
+			maintain_sleep=false;
+			kmaintain_sleep();
+			continue;
+			
+		}
 		
 		if (quantum_expired) {
 			
@@ -1151,6 +1434,17 @@ static int kstart (void) {
 				
 			}break;
 			
+			case SYSCALL_SLEEP:{
+				
+				if (len!=sizeof(struct timespec)) goto invalid_length;
+				
+				struct timespec ts;
+				SYSCALL_POP(ts,args,i);
+				
+				ksleep(ts);
+				
+			}break;
+			
 			default:
 				last_error=EINVAL;
 				break;
@@ -1224,6 +1518,40 @@ ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
 	#endif
 	
 	quantum_expired=true;
+	kenter();
+	
+}
+
+
+ISR(TIMER3_OVF_vect,ISR_BLOCK) {
+	
+	#ifdef DEBUG
+	PORTA|=1<<PA3;
+	LOGIC_ANALYZER_DELAY;
+	PORTA&=~(1<<PA3);
+	#endif
+	
+	++overflows;
+	
+	//	Check this outside the kernel to
+	//	save context switch
+	if (ksleep_no_work()) return;
+	
+	maintain_sleep=true;
+	kenter();
+	
+}
+
+
+ISR(TIMER3_COMPA_vect,ISR_BLOCK) {
+	
+	#ifdef DEBUG
+	PORTA|=1<<PA7;
+	LOGIC_ANALYZER_DELAY;
+	PORTA&=~(1<<PA7);
+	#endif
+	
+	maintain_sleep=true;
 	kenter();
 	
 }

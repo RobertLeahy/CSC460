@@ -166,6 +166,17 @@ int event_signal_r (event_t event, error_t * err) {
 }
 
 
+int sleep (struct timespec ts) {
+	
+	unsigned char buffer [sizeof(ts)];
+	size_t i=0;
+	SYSCALL_PUSH(ts,buffer,i);
+	
+	return syscall(SYSCALL_SLEEP,buffer,sizeof(buffer));
+	
+}
+
+
 void yield (void) {
 	
 	syscall(SYSCALL_YIELD,0,0);

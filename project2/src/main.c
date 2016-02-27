@@ -1,5 +1,6 @@
 #include <avr/io.h>
 #include <os.h>
+#include <string.h>
 
 
 static void on (void) {
@@ -57,62 +58,24 @@ static void error (void) {
 }
 
 
-struct state {
-	
-	event_t ping;
-	event_t pong;
-	
-};
-
-
-static void pong (void * arg) {
-	
-	const struct state * s=(const struct state *)arg;
-	for (;;) {
-		
-		on();
-		wait(3);
-		
-		if (
-			(event_signal(s->pong)!=0) ||
-			(event_wait(s->ping)!=0)
-		) error();
-		
-	}
-	
-}
-
-
-static void ping (void * arg) {
-	
-	const struct state * s=(const struct state *)arg;
-	for (;;) {
-		
-		if (event_wait(s->pong)!=0) error();
-		
-		off();
-		wait(3);
-		
-		if (event_signal(s->ping)!=0) error();
-		
-	}
-	
-}
-
-
 void rtos_main (void) {
 	
 	DDRB|=1<<PB7;
-	off();
 	
-	struct state s;
-	if (
-		(event_create(&s.ping)!=0) ||
-		(event_create(&s.pong)!=0) ||
-		(thread_set_priority(thread_self(),14)!=0) ||
-		(thread_create(0,ping,14,&s)!=0)
-	) error();
+	struct timespec ts;
+	ts.tv_sec=0;
+	ts.tv_nsec=900000000ULL;
 	
-	pong(&s);
+	for (;;) {
+		
+		off();
+		
+		if (sleep(ts)!=0) error();
+		
+		on();
+		
+		if (sleep(ts)!=0) error();
+		
+	}
 	
 }

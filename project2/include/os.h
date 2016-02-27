@@ -244,6 +244,41 @@ int event_signal_r (event_t event, error_t * err);
 
 
 /**
+ *	A structure indicating a high precision amount
+ *	of time.
+ */
+struct timespec {
+	
+	/**
+	 *	Seconds.
+	 */
+	unsigned int tv_sec;
+	_Static_assert(sizeof(unsigned long)==4,"unsigned long not exactly 32 bits");
+	/**
+	 *	Nanoseconds.
+	 */
+	unsigned long tv_nsec;
+	
+};
+/**
+ *	Puts the current thread to sleep for at least
+ *	the amount of time indicates by \em ts.
+ *
+ *	Note that there is no guarantee that exactly
+ *	\em ts will pass until this thread runs again,
+ *	only that at least \em ts will pass.
+ *
+ *	\param [in] ts
+ *		A structure representing the minimum amount
+ *		of time to sleep for.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int sleep (struct timespec ts);
+
+
+/**
  *	Yields control of the CPU back to the kernel for
  *	rescheduling.
  */
