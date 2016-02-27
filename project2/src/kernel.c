@@ -31,6 +31,30 @@
 #define enable_interrupt() asm volatile ("sei"::)
 
 
+#ifdef DEBUG
+//	Delays long enough that the logic analyzer
+//	can pick up a transition before this
+#define LOGIC_ANALYZER_DELAY asm volatile (	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop\r\n"	\
+	"nop"	\
+)
+#endif
+
+
 static struct kthread threads [MAX_THREADS];
 struct kthread * current_thread;
 static error_t last_error;
@@ -258,6 +282,19 @@ static void kenter (void) {
 static void kexit (void) {
 	
 	#ifdef DEBUG
+	//	Signal the thread number that's being
+	//	restored
+	size_t t=(size_t)(current_thread-threads);
+	for (size_t i=0;i<t;++i) {
+		
+		PORTA|=1<<PA5;
+		LOGIC_ANALYZER_DELAY;
+		
+		PORTA&=~(1<<PA5);
+		LOGIC_ANALYZER_DELAY;
+		
+	}
+	
 	//	About to leave the kernel, drag
 	//	pin 22 low
 	PORTA&=~(1<<PA0);
@@ -621,6 +658,15 @@ static int kinit (void) {
 	//	We do not start in an ISR...
 	PORTA&=~(1<<PA2);
 	
+	//	Port 26: Signals syscalls
+	DDRA|=1<<PA4;
+	PORTA&=~(1<<PA4);
+	
+	//	Port 27: Signals running thread number
+	//	on each exit from the kernel
+	DDRA|=1<<PA5;
+	PORTA&=~(1<<PA5);
+	
 	#endif
 	
 	return 0;
@@ -934,6 +980,24 @@ static void kevent_signal (event_t event) {
 }
 
 
+#ifdef DEBUG
+static void ksignal_syscall (enum syscall s) {
+	
+	unsigned int sc=s;
+	for (unsigned int i=0;i<sc;++i) {
+		
+		PORTA|=1<<PA4;
+		LOGIC_ANALYZER_DELAY;
+		
+		PORTA&=~(1<<PA4);
+		LOGIC_ANALYZER_DELAY;
+		
+	}
+	
+}
+#endif
+
+
 #define SYSCALL_POP(var,buffer,i) do { memcpy(&(var),((unsigned char *)(buffer))+i,sizeof((var)));i+=sizeof((var)); } while (0)
 
 
@@ -962,6 +1026,9 @@ static int kstart (void) {
 		void * args=syscall_state.args;
 		size_t len=syscall_state.len;
 		size_t i=0;
+		#ifdef DEBUG
+		ksignal_syscall(num);
+		#endif
 		switch (num) {
 			
 			case SYSCALL_YIELD:
