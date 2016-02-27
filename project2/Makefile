@@ -68,14 +68,8 @@ obj/%.o:
 	-@$(call MAKE_PARENT,$@)
 	$(GCC) -c -o $@ $(patsubst obj/%.o,src/%.c,$@)
 
-
-obj/cswitch.o: src/cswitch.S
-	-@$(call MAKE_PARENT,$@)
-	$(GCC) -Wa,--gstabs -c -o $@ src/cswitch.S
-
 	
 OBJS:=\
-obj/cswitch.o \
 obj/kernel.o \
 obj/main.o \
 obj/os.o
