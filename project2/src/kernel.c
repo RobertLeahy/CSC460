@@ -181,7 +181,7 @@ static struct kevent events [MAX_EVENTS];
 
 
 __attribute__((naked))
-static void kenter (void) {
+static void kenter_impl (void) {
 	
 	SAVE_CTX;
 	CURRENT_SP;
@@ -198,7 +198,7 @@ static void kenter (void) {
 
 
 __attribute__((naked))
-static void kexit (void) {
+static void kexit_impl (void) {
 	
 	SAVE_CTX;
 	IN_SP;
@@ -210,6 +210,70 @@ static void kexit (void) {
 	RESTORE_CTX;
 	
 	asm volatile ("ret");
+	
+}
+
+
+static unsigned char push_interrupt (void) {
+	
+	unsigned char retr=SREG;
+	disable_interrupt();
+	
+	return retr;
+	
+}
+
+
+static void pop_interrupt (unsigned char sreg) {
+	
+	if ((sreg&128U)!=0) enable_interrupt();
+	
+}
+
+
+//	These functions allows instrumenting calls
+//	to/returns from kenter/kexit (since they're
+//	not naked)
+static void kenter (void) {
+	
+	#ifdef DEBUG
+	unsigned char i=push_interrupt();
+	//	About to leave user space, drag
+	//	pin 23 low
+	PORTA&=~(1<<PA1);
+	#endif
+	
+	kenter_impl();
+	
+	#ifdef DEBUG
+	pop_interrupt(i);
+	//	Entered user space, drag pin 23
+	//	high
+	PORTA|=1<<PA1;
+	#endif
+	
+}
+
+
+static void kexit (void) {
+	
+	#ifdef DEBUG
+	//	About to leave the kernel, drag
+	//	pin 22 low
+	PORTA&=~(1<<PA0);
+	//	About to leave the kernel, that
+	//	means the ISR/context switch is
+	//	over
+	PORTA&=~(1<<PA2);
+	#endif
+	
+	kexit_impl();
+	
+	#ifdef DEBUG
+	//	Entered the kernel, drag pin 22
+	//	high
+	PORTA|=1<<PA0;
+	#endif
 	
 }
 
@@ -438,6 +502,12 @@ static void kdispatch (void) {
 
 static void kthread_start (void) {
 	
+	#ifdef DEBUG
+	//	Now in user space, drag pin 23
+	//	high
+	PORTA|=1<<PA1;
+	#endif
+	
 	//	Interrupts are enabled in non-kernel
 	//	threads
 	enable_interrupt();
@@ -527,6 +597,31 @@ static int kinit (void) {
 		(kmutex_init()!=0) ||
 		(kevent_init()!=0)
 	) return -1;
+	
+	#ifdef DEBUG
+	//	Configure debugging pins
+	
+	//	Port 22: High when in the kernel, low
+	//	otherwise
+	DDRA|=1<<PA0;
+	//	We start in the kernel, so this starts
+	//	high
+	PORTA|=1<<PA0;
+	
+	//	Port 23: High when in user space, low
+	//	otherwise
+	DDRA|=1<<PA1;
+	//	We start in the kernel, so this starts
+	//	low
+	PORTA&=~(1<<PA1);
+	
+	//	Port 24: High as the timer ISR enters,
+	//	low as it exits
+	DDRA|=1<<PA2;
+	//	We do not start in an ISR...
+	PORTA&=~(1<<PA2);
+	
+	#endif
 	
 	return 0;
 	
@@ -1032,8 +1127,7 @@ int main (void) {
 
 int syscall (enum syscall num, void * args, size_t len) {
 	
-	unsigned char sreg=SREG;
-	disable_interrupt();
+	unsigned char i=push_interrupt();
 	
 	syscall_state.num=num;
 	syscall_state.args=args;
@@ -1049,7 +1143,7 @@ int syscall (enum syscall num, void * args, size_t len) {
 		
 	}
 	
-	if ((sreg&128U)!=0) enable_interrupt();
+	pop_interrupt(i);
 	
 	return success ? 0 : -1;
 	
@@ -1057,6 +1151,10 @@ int syscall (enum syscall num, void * args, size_t len) {
 
 
 ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
+	
+	#ifdef DEBUG
+	PORTA|=1<<PA2;
+	#endif
 	
 	quantum_expired=true;
 	kenter();
