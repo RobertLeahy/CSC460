@@ -2,6 +2,7 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include <kernel.h>
+#include <limits.h>
 #include <os.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -59,6 +60,7 @@ struct kmutex {
 	
 	bool valid;
 	struct kthread * owner;
+	unsigned int count;
 	struct kthread_linked_list queue;
 	
 };
@@ -547,14 +549,22 @@ static void kmutex_lock (mutex_t mutex) {
 	if (!curr->owner) {
 		
 		curr->owner=current_thread;
+		curr->count=1;
 		return;
 		
 	}
 	
-	//	TODO: Make mutex recursive
+	//	Support recursive locking
 	if (curr->owner==current_thread) {
 		
-		last_error=EDEADLK;
+		if (curr->count==UINT_MAX) {
+			
+			last_error=EAGAIN;
+			return;
+			
+		}
+		
+		++curr->count;
 		return;
 		
 	}
@@ -578,7 +588,12 @@ static void kmutex_unlock (mutex_t mutex) {
 		
 	}
 	
+	//	Don't actually release the lock until the
+	//	recursion count reaches zero
+	if ((--curr->count)!=0) return;
+	
 	curr->owner=kthread_wait_pop(&curr->queue);
+	curr->count=1;
 	
 }
 
