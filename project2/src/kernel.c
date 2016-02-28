@@ -107,7 +107,7 @@ static struct kevent events [MAX_EVENTS];
 //	_A suffix because otherwise collides
 //	with AVR provided macros (why "_A"
 //	specifically?  Because these are the
-//	addresses if the registers in question
+//	addresses of the registers in question)
 #define SREG_A "0x3F"
 #define SPH_A "0x3E"
 #define SPL_A "0x3D"
