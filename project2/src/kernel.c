@@ -543,8 +543,21 @@ static void kthread_enqueue_impl (struct kthread * t) {
 
 static void kthread_enqueue (struct kthread * t) {
 	
+	//	We track the current thread because
+	//	if it changes the quantum restarts
+	struct kthread * prev=current_thread;
+	
 	kthread_enqueue_impl(t);
 	current_thread=thread_queue.head;
+	
+	//	Nothing changed, no need to restart
+	//	quantum
+	if (current_thread==prev) return;
+	
+	//	Restart quantum and clear pending
+	//	interrupt (if any)
+	TCNT1=0;
+	TIFR1=1<<OCF1A;
 	
 }
 
