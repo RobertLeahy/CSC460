@@ -72,7 +72,8 @@ obj/%.o:
 OBJS:=\
 obj/kernel.o \
 obj/main.o \
-obj/os.o
+obj/os.o \
+obj/uart.o
 
 
 all: bin/img.elf

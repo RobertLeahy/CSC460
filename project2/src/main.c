@@ -1,6 +1,7 @@
 #include <avr/io.h>
 #include <os.h>
 #include <string.h>
+#include <uart.h>
 
 
 static void on (void) {
@@ -58,24 +59,30 @@ static void error (void) {
 }
 
 
+static void thread (void * ptr) {
+	
+	uart_t uart=(uart_t)(uintptr_t)ptr;
+	
+	struct uart_opt opt;
+	memset(&opt,0,sizeof(opt));
+	opt.baud=9600;
+	
+	if (uart_init(uart,opt)!=0) error();
+	
+	struct timespec ts;
+	memset(&ts,0,sizeof(ts));
+	ts.tv_sec=0;
+	ts.tv_nsec=50000000ULL;
+	char in;
+	for (;;) if ((uart_recv(uart,&in,1,0,0)!=0) || (uart_send(uart,&in,1,0)!=0)) error();
+	
+}
+
+
 void rtos_main (void) {
 	
 	DDRB|=1<<PB7;
 	
-	struct timespec ts;
-	ts.tv_sec=0;
-	ts.tv_nsec=900000000ULL;
-	
-	for (;;) {
-		
-		off();
-		
-		if (sleep(ts)!=0) error();
-		
-		on();
-		
-		if (sleep(ts)!=0) error();
-		
-	}
+	for (uart_t u=0;u<4;++u) if (thread_create(0,thread,0,(void *)(uintptr_t)u)!=0) error();
 	
 }

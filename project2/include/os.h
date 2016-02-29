@@ -41,7 +41,8 @@ typedef enum {
 	EINVAL=2,
 	EPERM=3,
 	EDEADLK=4,
-	EBUSY=5
+	EBUSY=5,
+	EOPNOTSUPP=6
 } error_t;
 error_t * get_last_error (void);
 /**
