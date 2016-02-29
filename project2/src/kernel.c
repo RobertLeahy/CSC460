@@ -661,13 +661,12 @@ static void kdispatch (void) {
 	do {
 		
 		//	Pop
-		struct kthread * curr=thread_queue.head;
-		current_thread=thread_queue.head=curr->queue.next;
+		thread_queue.head=current_thread->queue.next;
 		if (!thread_queue.head) thread_queue.tail=0;
-		curr->queue.next=0;
+		current_thread->queue.next=0;
 		
 		//	Re-enqueue previously running thread
-		kthread_enqueue(curr);
+		kthread_enqueue(current_thread);
 		
 	} while (current_thread->state!=READY);
 	
