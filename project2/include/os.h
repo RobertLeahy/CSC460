@@ -9,6 +9,11 @@
 #include <stddef.h>
 
 
+#ifdef PROVIDED_API
+#include <mantis.h>
+#endif
+
+
 /**
  *	The type of a handle to a thread.
  */

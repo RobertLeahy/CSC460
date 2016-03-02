@@ -11,7 +11,7 @@ else
 endif
 
 
-OPTS_SHARED:=-I ./include -std=gnu11 -mmcu=atmega2560 -DF_CPU=16000000L -DARDUINO=10607 -DARDUINO_AVR_MEGA2560 -DARDUINO_ARCH_AVR -ffunction-sections -fdata-sections
+OPTS_SHARED:=-I ./include -std=gnu11 -mmcu=atmega2560 -DF_CPU=16000000L -DARDUINO=10607 -DARDUINO_AVR_MEGA2560 -DARDUINO_ARCH_AVR -ffunction-sections -fdata-sections -DPROVIDED_API
 
 
 ifeq ($(OS),Windows_NT)
@@ -72,6 +72,7 @@ obj/%.o:
 OBJS:=\
 obj/kernel.o \
 obj/main.o \
+obj/mantis.o \
 obj/os.o \
 obj/uart.o
 
