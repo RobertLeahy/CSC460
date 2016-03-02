@@ -1,6 +1,7 @@
 #include <avr/common.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
+#include <debug.h>
 #include <interrupt.h>
 #include <kernel.h>
 #include <limits.h>
@@ -22,165 +23,6 @@
 #define IDLE_PRIO (0U)
 //	The priority of the main thread
 #define MAIN_PRIO (0U)
-
-
-#define EMPTY ((void)0)
-
-
-#ifdef DEBUG
-
-//	Delays long enough that the logic analyzer
-//	can pick up a transition before this
-#define LOGIC_ANALYZER_DELAY asm volatile (	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop\r\n"	\
-	"nop"	\
-)
-
-#define kdebug_high_impl(port,pin) (PORT ## port|=1<<(pin))
-#define kdebug_high(port,pin) kdebug_high_impl(port,pin)
-#define kdebug_low_impl(port,pin) (PORT ## port&=~(1<<(pin)))
-#define kdebug_low(port,pin) kdebug_low_impl(port,pin)
-
-#define kdebug_setup_impl(port,pin,hi) do {	\
-	DDR ## port|=1<<(pin);	\
-	if (hi) kdebug_high(port,(pin));	\
-	else kdebug_low(port,(pin));	\
-} while (0)
-#define kdebug_setup(port,pin,hi) kdebug_setup_impl(port,pin,hi)
-
-#define kdebug_pulse_impl(port,pin,num) do {	\
-	size_t bound=(num);	\
-	for (size_t i=0;i<bound;++i) {	\
-		if (i!=0) LOGIC_ANALYZER_DELAY;	\
-		kdebug_high(port,(pin));	\
-		LOGIC_ANALYZER_DELAY;	\
-		kdebug_low(port,(pin));	\
-	}	\
-} while (0)
-#define kdebug_pulse(port,pin,num) kdebug_pulse_impl(port,pin,num)
-
-//	Current pin allocations:
-//
-//	Pin 22:	High when in the kernel
-//	Pin 23: High when in user space
-//	Pin 24: High as scheduler ISR enters until end of reschedule
-//	Pin 25: Pulsed when sleep timer overflows
-//	Pin 26: Pulses out the number of each syscall performed
-//	Pin 27: Pulses out thread number each time kernel exits
-//	Pin 28: High during context switching
-//	Pin 29: Pulses whenever sleep timer compare interrupt occurs
-
-#define KDEBUG_THREAD_PORT A
-#define KDEBUG_THREAD_PIN (PA5)
-#define KDEBUG_THREAD_SETUP kdebug_setup(KDEBUG_THREAD_PORT,KDEBUG_THREAD_PIN,false)
-#define kdebug_thread_signal() kdebug_pulse(KDEBUG_THREAD_PORT,KDEBUG_THREAD_PIN,(current_thread-threads))
-
-#define KDEBUG_KERNEL_PORT A
-#define KDEBUG_KERNEL_PIN (PA0)
-#define KDEBUG_KERNEL_SETUP kdebug_setup(KDEBUG_KERNEL_PORT,KDEBUG_KERNEL_PIN,true)
-#define kdebug_kernel_enter() kdebug_high(KDEBUG_KERNEL_PORT,KDEBUG_KERNEL_PIN)
-#define kdebug_kernel_exit() do {	\
-	kdebug_thread_signal();	\
-	kdebug_low(KDEBUG_QUANTUM_PORT,KDEBUG_QUANTUM_PIN);	\
-	kdebug_low(KDEBUG_KERNEL_PORT,KDEBUG_KERNEL_PIN);	\
-} while (0)
-
-#define KDEBUG_USER_SPACE_PORT A
-#define KDEBUG_USER_SPACE_PIN (PA1)
-#define KDEBUG_USER_SPACE_SETUP kdebug_setup(KDEBUG_USER_SPACE_PORT,KDEBUG_USER_SPACE_PIN,false)
-#define kdebug_user_space_enter() kdebug_high(KDEBUG_USER_SPACE_PORT,KDEBUG_USER_SPACE_PIN)
-#define kdebug_user_space_exit() kdebug_low(KDEBUG_USER_SPACE_PORT,KDEBUG_USER_SPACE_PIN)
-
-#define KDEBUG_QUANTUM_PORT A
-#define KDEBUG_QUANTUM_PIN (PA2)
-#define KDEBUG_QUANTUM_SETUP kdebug_setup(KDEBUG_QUANTUM_PORT,KDEBUG_QUANTUM_PIN,false)
-#define kdebug_quantum() kdebug_high(KDEBUG_QUANTUM_PORT,KDEBUG_QUANTUM_PIN)
-
-#define KDEBUG_SLEEP_TIMER_PORT A
-#define KDEBUG_SLEEP_TIMER_PIN (PA7)
-#define KDEBUG_SLEEP_TIMER_SETUP kdebug_setup(KDEBUG_SLEEP_TIMER_PORT,KDEBUG_SLEEP_TIMER_PIN,false)
-#define kdebug_sleep_timer() kdebug_pulse(KDEBUG_SLEEP_TIMER_PORT,KDEBUG_SLEEP_TIMER_PIN,1)
-
-#define KDEBUG_SLEEP_OVERFLOW_PORT A
-#define KDEBUG_SLEEP_OVERFLOW_PIN (PA3)
-#define KDEBUG_SLEEP_OVERFLOW_SETUP kdebug_setup(KDEBUG_SLEEP_OVERFLOW_PORT,KDEBUG_SLEEP_OVERFLOW_PIN,false)
-#define kdebug_sleep_overflow() kdebug_pulse(KDEBUG_SLEEP_OVERFLOW_PORT,KDEBUG_SLEEP_OVERFLOW_PIN,1)
-
-#define KDEBUG_SYSCALL_PORT A
-#define KDEBUG_SYSCALL_PIN (PA4)
-#define KDEBUG_SYSCALL_SETUP kdebug_setup(KDEBUG_SYSCALL_PORT,KDEBUG_SYSCALL_PIN,false)
-#define kdebug_syscall() kdebug_pulse(KDEBUG_SYSCALL_PORT,KDEBUG_SYSCALL_PIN,syscall_state.num)
-
-//	DISABLED
-#define KDEBUG_MAINTAIN_SLEEP_PORT A
-#define KDEBUG_MAINTAIN_SLEEP_PIN (PA6)
-#define KDEBUG_MAINTAIN_SLEEP_SETUP kdebug_setup(KDEBUG_MAINTAIN_SLEEP_PORT,KDEBUG_MAINTAIN_SLEEP_PIN,false)
-#undef KDEBUG_MAINTAIN_SLEEP_SETUP
-#define KDEBUG_MAINTAIN_SLEEP_SETUP EMPTY
-#define kdebug_maintain_sleep_enter() kdebug_high(KDEBUG_MAINTAIN_SLEEP_PORT,KDEBUG_MAINTAIN_SLEEP_PIN)
-#undef kdebug_maintain_sleep_enter
-#define kdebug_maintain_sleep_enter() EMPTY
-#define kdebug_maintain_sleep_exit() kdebug_low(KDEBUG_MAINTAIN_SLEEP_PORT,KDEBUG_MAINTAIN_SLEEP_PIN)
-#undef kdebug_maintain_sleep_exit
-#define kdebug_maintain_sleep_exit() EMPTY
-
-#define KDEBUG_CONTEXT_SWITCH_PORT A
-#define KDEBUG_CONTEXT_SWITCH_PIN (PA6)
-#define KDEBUG_CONTEXT_SWITCH_SETUP kdebug_setup(KDEBUG_CONTEXT_SWITCH_PORT,KDEBUG_CONTEXT_SWITCH_PIN,false)
-#define kdebug_context_switch_begin() kdebug_high(KDEBUG_CONTEXT_SWITCH_PORT,KDEBUG_CONTEXT_SWITCH_PIN)
-#define kdebug_context_switch_end() kdebug_low(KDEBUG_CONTEXT_SWITCH_PORT,KDEBUG_CONTEXT_SWITCH_PIN)
-
-#define KDEBUG_SETUP do {	\
-	KDEBUG_KERNEL_SETUP;	\
-	KDEBUG_USER_SPACE_SETUP;	\
-	KDEBUG_THREAD_SETUP;	\
-	KDEBUG_QUANTUM_SETUP;	\
-	KDEBUG_SLEEP_TIMER_SETUP;	\
-	KDEBUG_SLEEP_OVERFLOW_SETUP;	\
-	KDEBUG_SYSCALL_SETUP;	\
-	KDEBUG_MAINTAIN_SLEEP_SETUP;	\
-	KDEBUG_CONTEXT_SWITCH_SETUP;	\
-} while (0)
-
-#else
-
-#define kdebug_kernel_enter() EMPTY
-#define kdebug_kernel_exit() EMPTY
-
-#define kdebug_user_space_enter() EMPTY
-#define kdebug_user_space_exit() EMPTY
-
-#define kdebug_quantum() EMPTY
-
-#define kdebug_sleep_timer() EMPTY
-
-#define kdebug_sleep_overflow() EMPTY
-
-#define kdebug_syscall() EMPTY
-
-#define kdebug_maintain_sleep_enter() EMPTY
-#define kdebug_maintain_sleep_exit() EMPTY
-
-#define kdebug_context_switch_begin() EMPTY
-#define kdebug_context_switch_end() EMPTY
-
-#define KDEBUG_SETUP EMPTY
-
-#endif
 
 
 static struct kthread threads [MAX_THREADS];
@@ -303,15 +145,15 @@ static void kenter (void) {
 	#ifdef DEBUG
 	bool i=disable_and_push_interrupt();
 	#endif
-	kdebug_user_space_exit();
+	debug_user_space_exit();
 	
-	kdebug_context_switch_begin();
+	debug_context_switch_begin();
 	
 	kenter_impl();
 	
-	kdebug_context_switch_end();
+	debug_context_switch_end();
 	
-	kdebug_user_space_enter();
+	debug_user_space_enter();
 	#ifdef DEBUG
 	pop_interrupt(i);
 	#endif
@@ -321,15 +163,15 @@ static void kenter (void) {
 
 static void kexit (void) {
 	
-	kdebug_kernel_exit();
+	debug_kernel_exit();
 	
-	kdebug_context_switch_begin();
+	debug_context_switch_begin();
 	
 	kexit_impl();
 	
-	kdebug_context_switch_end();
+	debug_context_switch_end();
 	
-	kdebug_kernel_enter();
+	debug_kernel_enter();
 	
 }
 
@@ -608,7 +450,7 @@ static void kdispatch (void) {
 
 static void kthread_start (void) {
 	
-	kdebug_user_space_enter();
+	debug_user_space_enter();
 	
 	//	Interrupts are enabled in non-kernel
 	//	threads
@@ -700,7 +542,7 @@ static int kinit (void) {
 		(kevent_init()!=0)
 	) return -1;
 	
-	KDEBUG_SETUP;
+	DEBUG_SETUP;
 	
 	return 0;
 	
@@ -1257,11 +1099,11 @@ static void kmaintain_sleep_impl (void) {
 
 static void kmaintain_sleep (void) {
 	
-	kdebug_maintain_sleep_enter();
+	debug_maintain_sleep_enter();
 	
 	kmaintain_sleep_impl();
 	
-	kdebug_maintain_sleep_exit();
+	debug_maintain_sleep_exit();
 	
 }
 
@@ -1338,7 +1180,7 @@ static int kstart (void) {
 		void * args=syscall_state.args;
 		size_t len=syscall_state.len;
 		size_t i=0;
-		kdebug_syscall();
+		debug_syscall();
 		switch (num) {
 			
 			case SYSCALL_YIELD:
@@ -1553,7 +1395,7 @@ int syscall (enum syscall num, void * args, size_t len) {
 
 ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
 	
-	kdebug_quantum();
+	debug_quantum();
 	
 	quantum_expired=true;
 	kenter();
@@ -1563,7 +1405,7 @@ ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
 
 ISR(TIMER3_OVF_vect,ISR_BLOCK) {
 	
-	kdebug_sleep_overflow();
+	debug_sleep_overflow();
 	
 	++overflows;
 	
@@ -1579,7 +1421,7 @@ ISR(TIMER3_OVF_vect,ISR_BLOCK) {
 
 ISR(TIMER3_COMPA_vect,ISR_BLOCK) {
 	
-	kdebug_sleep_timer();
+	debug_sleep_timer();
 	
 	maintain_sleep=true;
 	kenter();
