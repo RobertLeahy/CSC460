@@ -79,8 +79,8 @@ static void uart_setup (uart_t uart, struct uart_opt opt) {
 	#define uart_setup_impl(num) do {	\
 		UBRR ## num=ubrr;	\
 		UCSR ## num ## A=0;	\
-		UCSR ## num ## B=(1<<TXEN ## num)|(1<<RXEN ## num)|(1<<RXCIE ## num);	\
 		UCSR ## num ## C=(1<<UCSZ ## num ## 1)|(1<<UCSZ ## num ## 0);	\
+		UCSR ## num ## B=(1<<TXEN ## num)|(1<<RXEN ## num)|(1<<RXCIE ## num);	\
 	} while (0)
 	
 	switch (uart) {
@@ -138,13 +138,11 @@ int uart_init (uart_t uart, struct uart_opt opt) {
 
 int uart_cleanup_impl (struct uart_state * s) {
 	
-	int retr=((uart_channel_cleanup(&s->send)!=0) && (uart_channel_cleanup(&s->recv)!=0)) ? 0 : -1;
-	
 	#define uart_cleanup_impl(num) do {	\
+		UCSR ## num ## C=0;	\
 		UBRR ## num=0;	\
 		UCSR ## num ## A=0;	\
 		UCSR ## num ## B=0;	\
-		UCSR ## num ## C=0;	\
 	} while (0)
 	
 	switch (s->num) {
@@ -168,7 +166,9 @@ int uart_cleanup_impl (struct uart_state * s) {
 	
 	#undef uart_cleanup_impl
 	
-	return retr;
+	int retr=uart_channel_cleanup(&s->send);
+	int retr2=uart_channel_cleanup(&s->recv);
+	return ((retr==0) && (retr2==0)) ? 0 : -1;
 	
 }
 
@@ -178,11 +178,7 @@ int uart_cleanup (uart_t uart) {
 	struct uart_state * s=uart_get(uart);
 	if (!s) return -1;
 	
-	bool i=disable_and_push_interrupt();
-	int retr=uart_cleanup_impl(s);
-	pop_interrupt(i);
-	
-	return retr;
+	return uart_cleanup_impl(s);
 	
 }
 
