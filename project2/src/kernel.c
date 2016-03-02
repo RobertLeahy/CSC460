@@ -84,7 +84,7 @@
 //	Pin 25: Pulsed when sleep timer overflows
 //	Pin 26: Pulses out the number of each syscall performed
 //	Pin 27: Pulses out thread number each time kernel exits
-//	Pin 28: High in kmaintain_sleep
+//	Pin 28: High during context switching
 //	Pin 29: Pulses whenever sleep timer compare interrupt occurs
 
 #define KDEBUG_THREAD_PORT A
@@ -128,11 +128,24 @@
 #define KDEBUG_SYSCALL_SETUP kdebug_setup(KDEBUG_SYSCALL_PORT,KDEBUG_SYSCALL_PIN,false)
 #define kdebug_syscall() kdebug_pulse(KDEBUG_SYSCALL_PORT,KDEBUG_SYSCALL_PIN,syscall_state.num)
 
+//	DISABLED
 #define KDEBUG_MAINTAIN_SLEEP_PORT A
 #define KDEBUG_MAINTAIN_SLEEP_PIN (PA6)
 #define KDEBUG_MAINTAIN_SLEEP_SETUP kdebug_setup(KDEBUG_MAINTAIN_SLEEP_PORT,KDEBUG_MAINTAIN_SLEEP_PIN,false)
+#undef KDEBUG_MAINTAIN_SLEEP_SETUP
+#define KDEBUG_MAINTAIN_SLEEP_SETUP EMPTY
 #define kdebug_maintain_sleep_enter() kdebug_high(KDEBUG_MAINTAIN_SLEEP_PORT,KDEBUG_MAINTAIN_SLEEP_PIN)
+#undef kdebug_maintain_sleep_enter
+#define kdebug_maintain_sleep_enter() EMPTY
 #define kdebug_maintain_sleep_exit() kdebug_low(KDEBUG_MAINTAIN_SLEEP_PORT,KDEBUG_MAINTAIN_SLEEP_PIN)
+#undef kdebug_maintain_sleep_exit
+#define kdebug_maintain_sleep_exit() EMPTY
+
+#define KDEBUG_CONTEXT_SWITCH_PORT A
+#define KDEBUG_CONTEXT_SWITCH_PIN (PA6)
+#define KDEBUG_CONTEXT_SWITCH_SETUP kdebug_setup(KDEBUG_CONTEXT_SWITCH_PORT,KDEBUG_CONTEXT_SWITCH_PIN,false)
+#define kdebug_context_switch_begin() kdebug_high(KDEBUG_CONTEXT_SWITCH_PORT,KDEBUG_CONTEXT_SWITCH_PIN)
+#define kdebug_context_switch_end() kdebug_low(KDEBUG_CONTEXT_SWITCH_PORT,KDEBUG_CONTEXT_SWITCH_PIN)
 
 #define KDEBUG_SETUP do {	\
 	KDEBUG_KERNEL_SETUP;	\
@@ -143,6 +156,7 @@
 	KDEBUG_SLEEP_OVERFLOW_SETUP;	\
 	KDEBUG_SYSCALL_SETUP;	\
 	KDEBUG_MAINTAIN_SLEEP_SETUP;	\
+	KDEBUG_CONTEXT_SWITCH_SETUP;	\
 } while (0)
 
 #else
@@ -163,6 +177,9 @@
 
 #define kdebug_maintain_sleep_enter() EMPTY
 #define kdebug_maintain_sleep_exit() EMPTY
+
+#define kdebug_context_switch_begin() EMPTY
+#define kdebug_context_switch_end() EMPTY
 
 #define KDEBUG_SETUP EMPTY
 
@@ -365,7 +382,11 @@ static void kenter (void) {
 	#endif
 	kdebug_user_space_exit();
 	
+	kdebug_context_switch_begin();
+	
 	kenter_impl();
+	
+	kdebug_context_switch_end();
 	
 	kdebug_user_space_enter();
 	#ifdef DEBUG
@@ -379,7 +400,11 @@ static void kexit (void) {
 	
 	kdebug_kernel_exit();
 	
+	kdebug_context_switch_begin();
+	
 	kexit_impl();
+	
+	kdebug_context_switch_end();
 	
 	kdebug_kernel_enter();
 	
