@@ -1354,6 +1354,8 @@ int main (void) {
 	
 	kinit();
 	
+	debug_start();
+	
 	thread_t m;
 	kthread_create(&m,main_thread,MAIN_PRIO,0);
 	

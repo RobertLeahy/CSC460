@@ -70,7 +70,7 @@
 //	Current pin allocations:
 //
 //	Pin 22:	High when in the kernel
-//	Pin 23: High when in user space
+//	Pin 23: Pulses when the kernel starts
 //	Pin 24: High as scheduler ISR enters until end of reschedule
 //	Pin 25: High during UART receive
 //	Pin 26: High during UART UDRE interrupt
@@ -98,11 +98,18 @@
 	debug_low(DEBUG_KERNEL_PORT,DEBUG_KERNEL_PIN);	\
 } while (0)
 
+//	DISABLED - Previously port 23
 #define DEBUG_USER_SPACE_PORT A
 #define DEBUG_USER_SPACE_PIN (PA1)
 #define DEBUG_USER_SPACE_SETUP debug_setup(DEBUG_USER_SPACE_PORT,DEBUG_USER_SPACE_PIN,false)
+#undef DEBUG_USER_SPACE_SETUP
+#define DEBUG_USER_SPACE_SETUP EMPTY
 #define debug_user_space_enter() debug_high(DEBUG_USER_SPACE_PORT,DEBUG_USER_SPACE_PIN)
+#undef debug_user_space_enter
+#define debug_user_space_enter() EMPTY
 #define debug_user_space_exit() debug_low(DEBUG_USER_SPACE_PORT,DEBUG_USER_SPACE_PIN)
+#undef debug_user_space_exit
+#define debug_user_space_exit() EMPTY
 
 #define DEBUG_QUANTUM_PORT A
 #define DEBUG_QUANTUM_PIN (PA2)
@@ -182,6 +189,11 @@
 #define debug_uart_send_begin() debug_high(DEBUG_UART_SEND_PORT,DEBUG_UART_SEND_PIN)
 #define debug_uart_send_end() debug_low(DEBUG_UART_SEND_PORT,DEBUG_UART_SEND_PIN)
 
+#define DEBUG_START_PORT A
+#define DEBUG_START_PIN (PA1)
+#define DEBUG_START_SETUP debug_setup(DEBUG_START_PORT,DEBUG_START_PIN,false)
+#define debug_start() debug_pulse(DEBUG_START_PORT,DEBUG_START_PIN,1)
+
 #define DEBUG_SETUP do {	\
 	DEBUG_KERNEL_SETUP;	\
 	DEBUG_USER_SPACE_SETUP;	\
@@ -196,6 +208,7 @@
 	DEBUG_UART_UDRE_SETUP;	\
 	DEBUG_UART_RECV_SETUP;	\
 	DEBUG_UART_SEND_SETUP;	\
+	DEBUG_START_SETUP;	\
 } while (0)
 
 #else
@@ -231,6 +244,8 @@
 
 #define debug_uart_send_begin() EMPTY
 #define debug_uart_send_end() EMPTY
+
+#define debug_start() EMPTY
 
 #define DEBUG_SETUP EMPTY
 
