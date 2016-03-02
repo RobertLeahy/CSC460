@@ -53,24 +53,28 @@
 	"nop"	\
 )
 
-#define kdebug_high(port,pin) ((port)|=1<<(pin))
-#define kdebug_low(port,pin) ((port)&=~(1<<(pin)))
+#define kdebug_high_impl(port,pin) (PORT ## port|=1<<(pin))
+#define kdebug_high(port,pin) kdebug_high_impl(port,pin)
+#define kdebug_low_impl(port,pin) (PORT ## port&=~(1<<(pin)))
+#define kdebug_low(port,pin) kdebug_low_impl(port,pin)
 
-#define kdebug_setup(ddr,port,pin,hi) do {	\
-	(ddr)|=1<<(pin);	\
-	if (hi) kdebug_high((port),(pin));	\
-	else kdebug_low((port),(pin));	\
+#define kdebug_setup_impl(port,pin,hi) do {	\
+	DDR ## port|=1<<(pin);	\
+	if (hi) kdebug_high(port,(pin));	\
+	else kdebug_low(port,(pin));	\
 } while (0)
+#define kdebug_setup(port,pin,hi) kdebug_setup_impl(port,pin,hi)
 
-#define kdebug_pulse(port,pin,num) do {	\
+#define kdebug_pulse_impl(port,pin,num) do {	\
 	size_t bound=(num);	\
 	for (size_t i=0;i<bound;++i) {	\
 		if (i!=0) LOGIC_ANALYZER_DELAY;	\
-		kdebug_high((port),(pin));	\
+		kdebug_high(port,(pin));	\
 		LOGIC_ANALYZER_DELAY;	\
-		kdebug_low((port),(pin));	\
+		kdebug_low(port,(pin));	\
 	}	\
 } while (0)
+#define kdebug_pulse(port,pin,num) kdebug_pulse_impl(port,pin,num)
 
 //	Current pin allocations:
 //
@@ -83,16 +87,14 @@
 //	Pin 28: High in kmaintain_sleep
 //	Pin 29: Pulses whenever sleep timer compare interrupt occurs
 
-#define KDEBUG_THREAD_DDR (DDRA)
-#define KDEBUG_THREAD_PORT (PORTA)
+#define KDEBUG_THREAD_PORT A
 #define KDEBUG_THREAD_PIN (PA5)
-#define KDEBUG_THREAD_SETUP kdebug_setup(KDEBUG_THREAD_DDR,KDEBUG_THREAD_PORT,KDEBUG_THREAD_PIN,false)
+#define KDEBUG_THREAD_SETUP kdebug_setup(KDEBUG_THREAD_PORT,KDEBUG_THREAD_PIN,false)
 #define kdebug_thread_signal() kdebug_pulse(KDEBUG_THREAD_PORT,KDEBUG_THREAD_PIN,(current_thread-threads))
 
-#define KDEBUG_KERNEL_DDR (DDRA)
-#define KDEBUG_KERNEL_PORT (PORTA)
+#define KDEBUG_KERNEL_PORT A
 #define KDEBUG_KERNEL_PIN (PA0)
-#define KDEBUG_KERNEL_SETUP kdebug_setup(KDEBUG_KERNEL_DDR,KDEBUG_KERNEL_PORT,KDEBUG_KERNEL_PIN,true)
+#define KDEBUG_KERNEL_SETUP kdebug_setup(KDEBUG_KERNEL_PORT,KDEBUG_KERNEL_PIN,true)
 #define kdebug_kernel_enter() kdebug_high(KDEBUG_KERNEL_PORT,KDEBUG_KERNEL_PIN)
 #define kdebug_kernel_exit() do {	\
 	kdebug_thread_signal();	\
@@ -100,41 +102,35 @@
 	kdebug_low(KDEBUG_KERNEL_PORT,KDEBUG_KERNEL_PIN);	\
 } while (0)
 
-#define KDEBUG_USER_SPACE_DDR (DDRA)
-#define KDEBUG_USER_SPACE_PORT (PORTA)
+#define KDEBUG_USER_SPACE_PORT A
 #define KDEBUG_USER_SPACE_PIN (PA1)
-#define KDEBUG_USER_SPACE_SETUP kdebug_setup(KDEBUG_USER_SPACE_DDR,KDEBUG_USER_SPACE_PORT,KDEBUG_USER_SPACE_PIN,false)
+#define KDEBUG_USER_SPACE_SETUP kdebug_setup(KDEBUG_USER_SPACE_PORT,KDEBUG_USER_SPACE_PIN,false)
 #define kdebug_user_space_enter() kdebug_high(KDEBUG_USER_SPACE_PORT,KDEBUG_USER_SPACE_PIN)
 #define kdebug_user_space_exit() kdebug_low(KDEBUG_USER_SPACE_PORT,KDEBUG_USER_SPACE_PIN)
 
-#define KDEBUG_QUANTUM_DDR (DDRA)
-#define KDEBUG_QUANTUM_PORT (PORTA)
+#define KDEBUG_QUANTUM_PORT A
 #define KDEBUG_QUANTUM_PIN (PA2)
-#define KDEBUG_QUANTUM_SETUP kdebug_setup(KDEBUG_QUANTUM_DDR,KDEBUG_QUANTUM_PORT,KDEBUG_QUANTUM_PIN,false)
+#define KDEBUG_QUANTUM_SETUP kdebug_setup(KDEBUG_QUANTUM_PORT,KDEBUG_QUANTUM_PIN,false)
 #define kdebug_quantum() kdebug_high(KDEBUG_QUANTUM_PORT,KDEBUG_QUANTUM_PIN)
 
-#define KDEBUG_SLEEP_TIMER_DDR (DDRA)
-#define KDEBUG_SLEEP_TIMER_PORT (PORTA)
+#define KDEBUG_SLEEP_TIMER_PORT A
 #define KDEBUG_SLEEP_TIMER_PIN (PA7)
-#define KDEBUG_SLEEP_TIMER_SETUP kdebug_setup(KDEBUG_SLEEP_TIMER_DDR,KDEBUG_SLEEP_TIMER_PORT,KDEBUG_SLEEP_TIMER_PIN,false)
+#define KDEBUG_SLEEP_TIMER_SETUP kdebug_setup(KDEBUG_SLEEP_TIMER_PORT,KDEBUG_SLEEP_TIMER_PIN,false)
 #define kdebug_sleep_timer() kdebug_pulse(KDEBUG_SLEEP_TIMER_PORT,KDEBUG_SLEEP_TIMER_PIN,1)
 
-#define KDEBUG_SLEEP_OVERFLOW_DDR (DDRA)
-#define KDEBUG_SLEEP_OVERFLOW_PORT (PORTA)
+#define KDEBUG_SLEEP_OVERFLOW_PORT A
 #define KDEBUG_SLEEP_OVERFLOW_PIN (PA3)
-#define KDEBUG_SLEEP_OVERFLOW_SETUP kdebug_setup(KDEBUG_SLEEP_OVERFLOW_DDR,KDEBUG_SLEEP_OVERFLOW_PORT,KDEBUG_SLEEP_OVERFLOW_PIN,false)
+#define KDEBUG_SLEEP_OVERFLOW_SETUP kdebug_setup(KDEBUG_SLEEP_OVERFLOW_PORT,KDEBUG_SLEEP_OVERFLOW_PIN,false)
 #define kdebug_sleep_overflow() kdebug_pulse(KDEBUG_SLEEP_OVERFLOW_PORT,KDEBUG_SLEEP_OVERFLOW_PIN,1)
 
-#define KDEBUG_SYSCALL_DDR (DDRA)
-#define KDEBUG_SYSCALL_PORT (PORTA)
+#define KDEBUG_SYSCALL_PORT A
 #define KDEBUG_SYSCALL_PIN (PA4)
-#define KDEBUG_SYSCALL_SETUP kdebug_setup(KDEBUG_SYSCALL_DDR,KDEBUG_SYSCALL_PORT,KDEBUG_SYSCALL_PIN,false)
+#define KDEBUG_SYSCALL_SETUP kdebug_setup(KDEBUG_SYSCALL_PORT,KDEBUG_SYSCALL_PIN,false)
 #define kdebug_syscall() kdebug_pulse(KDEBUG_SYSCALL_PORT,KDEBUG_SYSCALL_PIN,syscall_state.num)
 
-#define KDEBUG_MAINTAIN_SLEEP_DDR (DDRA)
-#define KDEBUG_MAINTAIN_SLEEP_PORT (PORTA)
+#define KDEBUG_MAINTAIN_SLEEP_PORT A
 #define KDEBUG_MAINTAIN_SLEEP_PIN (PA6)
-#define KDEBUG_MAINTAIN_SLEEP_SETUP kdebug_setup(KDEBUG_MAINTAIN_SLEEP_DDR,KDEBUG_MAINTAIN_SLEEP_PORT,KDEBUG_MAINTAIN_SLEEP_PIN,false)
+#define KDEBUG_MAINTAIN_SLEEP_SETUP kdebug_setup(KDEBUG_MAINTAIN_SLEEP_PORT,KDEBUG_MAINTAIN_SLEEP_PIN,false)
 #define kdebug_maintain_sleep_enter() kdebug_high(KDEBUG_MAINTAIN_SLEEP_PORT,KDEBUG_MAINTAIN_SLEEP_PIN)
 #define kdebug_maintain_sleep_exit() kdebug_low(KDEBUG_MAINTAIN_SLEEP_PORT,KDEBUG_MAINTAIN_SLEEP_PIN)
 
