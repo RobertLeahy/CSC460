@@ -16,11 +16,8 @@
 //	This is the number of bytes that are
 //	popped when restoring a context:
 //
-//	-	32 8 bit general purpose registers
 //	-	1 8 bit status register
-//	-	RAMPZ (8 bits)
-//	-	EIND (8 bits)
-#define RESTORE_POP (35U)
+#define RESTORE_POP (1U)
 //	The priority of the idle task
 #define IDLE_PRIO (0U)
 //	The priority of the main thread
@@ -242,87 +239,13 @@ static struct kevent events [MAX_EVENTS];
 #define SREG_A "0x3F"
 #define SPH_A "0x3E"
 #define SPL_A "0x3D"
-#define RAMPZ_A "0x3B"
-#define EIND_A "0x3C"
 #define SAVE_CTX asm volatile (	\
-	"push r0\r\n"	\
-	"push r1\r\n"	\
-	"push r2\r\n"	\
-	"push r3\r\n"	\
-	"push r4\r\n"	\
-	"push r5\r\n"	\
-	"push r6\r\n"	\
-	"push r7\r\n"	\
-	"push r8\r\n"	\
-	"push r9\r\n"	\
-	"push r10\r\n"	\
-	"push r11\r\n"	\
-	"push r12\r\n"	\
-	"push r13\r\n"	\
-	"push r14\r\n"	\
-	"push r15\r\n"	\
-	"push r16\r\n"	\
-	"push r17\r\n"	\
-	"push r18\r\n"	\
-	"push r19\r\n"	\
-	"push r20\r\n"	\
-	"push r21\r\n"	\
-	"push r22\r\n"	\
-	"push r23\r\n"	\
-	"push r24\r\n"	\
-	"push r25\r\n"	\
-	"push r26\r\n"	\
-	"push r27\r\n"	\
-	"push r28\r\n"	\
-	"push r29\r\n"	\
-	"push r30\r\n"	\
-	"push r31\r\n"	\
 	"in r16," SREG_A "\r\n"	\
 	"push r16\r\n"	\
-	"in r16," RAMPZ_A "\r\n"	\
-	"push r16\r\n"	\
-	"in r16," EIND_A "\r\n"	\
-	"push r16"	\
 )
 #define RESTORE_CTX asm volatile (	\
 	"pop r16\r\n"	\
-	"out " EIND_A ",r16\r\n"	\
-	"pop r16\r\n"	\
-	"out " RAMPZ_A ",r16\r\n"	\
-	"pop r16\r\n"	\
 	"out " SREG_A ",r16\r\n"	\
-	"pop r31\r\n"	\
-	"pop r30\r\n"	\
-	"pop r29\r\n"	\
-	"pop r28\r\n"	\
-	"pop r27\r\n"	\
-	"pop r26\r\n"	\
-	"pop r25\r\n"	\
-	"pop r24\r\n"	\
-	"pop r23\r\n"	\
-	"pop r22\r\n"	\
-	"pop r21\r\n"	\
-	"pop r20\r\n"	\
-	"pop r19\r\n"	\
-	"pop r18\r\n"	\
-	"pop r17\r\n"	\
-	"pop r16\r\n"	\
-	"pop r15\r\n"	\
-	"pop r14\r\n"	\
-	"pop r13\r\n"	\
-	"pop r12\r\n"	\
-	"pop r11\r\n"	\
-	"pop r10\r\n"	\
-	"pop r9\r\n"	\
-	"pop r8\r\n"	\
-	"pop r7\r\n"	\
-	"pop r6\r\n"	\
-	"pop r5\r\n"	\
-	"pop r4\r\n"	\
-	"pop r3\r\n"	\
-	"pop r2\r\n"	\
-	"pop r1\r\n"	\
-	"pop r0"	\
 )
 #define CURRENT_SP asm volatile (	\
 	"lds r30, current_thread\r\n"	\
