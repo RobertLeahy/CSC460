@@ -807,6 +807,14 @@ static struct kthread * kthread_get (thread_t t) {
 }
 
 
+static void kthread_block (struct kthread * t) {
+	
+	t->state=BLOCKED;
+	if (current_thread==t) kdispatch();
+	
+}
+
+
 static void kthread_set_priority (thread_t thread, priority_t prio) {
 	
 	struct kthread * t=kthread_get(thread);
@@ -879,8 +887,7 @@ static void kthread_wait_insert (struct kthread_linked_list * ll, struct kthread
 	
 	//	Being inserted into the wait queue means
 	//	you're blocked
-	t->state=BLOCKED;
-	if (t==current_thread) kdispatch();
+	kthread_block(t);
 	
 	if (after) {
 		
@@ -1116,8 +1123,7 @@ static void kevent_wait (event_t event) {
 	
 	//	Wait
 	e->wait=current_thread;
-	current_thread->state=BLOCKED;
-	kdispatch();
+	kthread_block(current_thread);
 	
 }
 
