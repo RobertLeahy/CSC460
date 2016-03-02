@@ -282,7 +282,7 @@ static int uart_sync_send_impl (struct uart_state * s, const unsigned char * buf
 }
 
 
-int uart_send (uart_t uart, const void * buf, size_t buflen, size_t * sent) {
+static int uart_send_impl (uart_t uart, const void * buf, size_t buflen, size_t * sent) {
 	
 	size_t se;
 	if (!sent) sent=&se;
@@ -298,6 +298,19 @@ int uart_send (uart_t uart, const void * buf, size_t buflen, size_t * sent) {
 	bool i=disable_and_push_interrupt();
 	int retr=s->send.async ? uart_async_send_impl(s,ptr,buflen,sent) : uart_sync_send_impl(s,ptr,buflen,sent);
 	pop_interrupt(i);
+	
+	return retr;
+	
+}
+
+
+int uart_send (uart_t uart, const void * buf, size_t buflen, size_t * sent) {
+	
+	debug_uart_send_begin();
+	
+	int retr=uart_send_impl(uart,buf,buflen,sent);
+	
+	debug_uart_send_end();
 	
 	return retr;
 	
@@ -410,7 +423,7 @@ static int uart_sync_recv_impl (struct uart_state * s, unsigned char * buf, size
 }
 
 
-int uart_recv (uart_t uart, void * buf, size_t buflen, size_t * recvd, struct uart_recv_error * err) {
+static int uart_recv_impl (uart_t uart, void * buf, size_t buflen, size_t * recvd, struct uart_recv_error * err) {
 	
 	if (err) memset(err,0,sizeof(*err));
 	
@@ -433,6 +446,19 @@ int uart_recv (uart_t uart, void * buf, size_t buflen, size_t * recvd, struct ua
 	memset(&s->recv_error,0,sizeof(s->recv_error));
 	
 	pop_interrupt(i);
+	
+	return retr;
+	
+}
+
+
+int uart_recv (uart_t uart, void * buf, size_t buflen, size_t * recvd, struct uart_recv_error * err) {
+	
+	debug_uart_recv_begin();
+	
+	int retr=uart_recv_impl(uart,buf,buflen,recvd,err);
+	
+	debug_uart_recv_end();
 	
 	return retr;
 	
