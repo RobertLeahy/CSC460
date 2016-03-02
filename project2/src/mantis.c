@@ -181,7 +181,7 @@ int Task_GetArg (void) {
 void Task_Suspend (PID p) {
 	
 	//	No way to report errors so don't
-	thread_suspend(pid_to_thread(p));
+	thread_suspend(thread_from_pid(p));
 	
 }
 
@@ -189,7 +189,7 @@ void Task_Suspend (PID p) {
 void Task_Resume (PID p) {
 	
 	//	No way to report errors so don't
-	thread_resume(pid_to_thread(p));
+	thread_resume(thread_from_pid(p));
 	
 }
 
