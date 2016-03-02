@@ -315,7 +315,7 @@ ISR(USART ## num ## _UDRE_vect,ISR_BLOCK) {	\
 		return;	\
 	}	\
 	UDR ## num=s->send.buf[s->sent++];	\
-	if (!s->send.async) event_signal(s->send.e);	\
+	if (!s->send.async) event_signal_r(s->send.e,0);	\
 }
 
 
@@ -451,7 +451,7 @@ ISR(USART ## num ## _RX_vect,ISR_BLOCK) {	\
 		return;	\
 	}	\
 	s->recv.buf[s->recv.buflen++]=UDR ## num;	\
-	if (!s->recv.async) event_signal(s->recv.e);	\
+	if (!s->recv.async) event_signal_r(s->recv.e,0);	\
 }
 
 
