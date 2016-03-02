@@ -1,6 +1,7 @@
 #include <avr/common.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
+#include <interrupt.h>
 #include <kernel.h>
 #include <limits.h>
 #include <os.h>
@@ -24,11 +25,6 @@
 #define IDLE_PRIO (0U)
 //	The priority of the main thread
 #define MAIN_PRIO (0U)
-
-
-//	Disables/enables interrupts
-#define	disable_interrupt() asm volatile ("cli"::)
-#define enable_interrupt() asm volatile ("sei"::)
 
 
 #define EMPTY ((void)0)
@@ -363,30 +359,13 @@ static void kexit_impl (void) {
 }
 
 
-static unsigned char push_interrupt (void) {
-	
-	unsigned char retr=SREG;
-	disable_interrupt();
-	
-	return retr;
-	
-}
-
-
-static void pop_interrupt (unsigned char sreg) {
-	
-	if ((sreg&128U)!=0) enable_interrupt();
-	
-}
-
-
 //	These functions allows instrumenting calls
 //	to/returns from kenter/kexit (since they're
 //	not naked)
 static void kenter (void) {
 	
 	#ifdef DEBUG
-	unsigned char i=push_interrupt();
+	bool i=disable_and_push_interrupt();
 	#endif
 	kdebug_user_space_exit();
 	
@@ -1605,7 +1584,7 @@ int main (void) {
 
 int syscall (enum syscall num, void * args, size_t len) {
 	
-	unsigned char i=push_interrupt();
+	bool i=disable_and_push_interrupt();
 	
 	syscall_state.num=num;
 	syscall_state.args=args;
