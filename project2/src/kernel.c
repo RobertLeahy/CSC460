@@ -510,7 +510,7 @@ static int ktimer_init (void) {
 }
 
 
-static bool kthread_lower_priority (struct kthread * a, struct kthread * b) {
+static bool kthread_lower_priority (const struct kthread * a, const struct kthread * b) {
 	
 	if (a->priority<b->priority) return true;
 	
@@ -521,7 +521,7 @@ static bool kthread_lower_priority (struct kthread * a, struct kthread * b) {
 }
 
 
-static bool kthread_higher_priority (struct kthread * a, struct kthread * b) {
+static bool kthread_higher_priority (const struct kthread * a, const struct kthread * b) {
 	
 	if (a->priority>b->priority) return true;
 	
@@ -532,7 +532,7 @@ static bool kthread_higher_priority (struct kthread * a, struct kthread * b) {
 }
 
 
-static bool kthread_equal_priority (struct kthread * a, struct kthread * b) {
+static bool kthread_equal_priority (const struct kthread * a, const struct kthread * b) {
 	
 	if (a->priority!=b->priority) return false;
 	
