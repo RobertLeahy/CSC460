@@ -40,6 +40,13 @@ static PID pid_from_thread (thread_t handle) {
 }
 
 
+static thread_t thread_from_pid (PID handle) {
+	
+	return handle;
+	
+}
+
+
 static int args [MAXTHREAD];
 
 
@@ -167,6 +174,22 @@ int Task_GetArg (void) {
 	if (i>=MAXTHREAD) return -1;
 	
 	return args[i];
+	
+}
+
+
+void Task_Suspend (PID p) {
+	
+	//	No way to report errors so don't
+	thread_suspend(pid_to_thread(p));
+	
+}
+
+
+void Task_Resume (PID p) {
+	
+	//	No way to report errors so don't
+	thread_resume(pid_to_thread(p));
 	
 }
 
