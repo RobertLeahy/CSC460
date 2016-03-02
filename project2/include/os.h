@@ -47,7 +47,8 @@ typedef enum {
 	EPERM=3,
 	EDEADLK=4,
 	EBUSY=5,
-	EOPNOTSUPP=6
+	EOPNOTSUPP=6,
+	EALREADY=7
 } error_t;
 error_t * get_last_error (void);
 /**
@@ -103,6 +104,35 @@ thread_t thread_self (void);
  *		0 if this call succeeds, -1 otherwise.
  */
 int thread_set_priority (thread_t thread, priority_t prio);
+/**
+ *	Suspends a thread.
+ *
+ *	A suspended thread will be descheduled and will
+ *	not be rescheduled until it is resumed.
+ *
+ *	This function will fail if \em thread is an invalid
+ *	thread handle or if \em thread is already suspended.
+ *
+ *	\param [in] thread
+ *		A handle to the thread-in-question.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int thread_suspend (thread_t thread);
+/**
+ *	Resumes a thread.
+ *
+ *	This function will fail if \em thread is an invalid
+ *	thread handle or if \em thread has not been suspended.
+ *
+ *	\param [in] thread
+ *		A handle to the thread-in-question.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int thread_resume (thread_t thread);
 
 
 /**

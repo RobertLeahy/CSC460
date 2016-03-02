@@ -7,6 +7,7 @@
 
 
 #include <os.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 
@@ -47,7 +48,9 @@ enum syscall {
 	SYSCALL_EVENT_DESTROY=9,
 	SYSCALL_EVENT_WAIT=10,
 	SYSCALL_EVENT_SIGNAL=11,
-	SYSCALL_SLEEP=12
+	SYSCALL_SLEEP=12,
+	SYSCALL_THREAD_SUSPEND=13,
+	SYSCALL_THREAD_RESUME=14
 	
 };
 
@@ -115,6 +118,7 @@ struct kthread {
 	struct kthread_node queue;
 	struct kthread_node wait;
 	struct ktime sleep;
+	bool suspended;
 	
 };
 

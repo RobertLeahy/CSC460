@@ -543,11 +543,21 @@ static bool kthread_equal_priority (const struct kthread * a, const struct kthre
 }
 
 
+static bool kthread_runnable (const struct kthread * t) {
+	
+	if (t->state!=READY) return false;
+	if (t->suspended) return false;
+	
+	return true;
+	
+}
+
+
 static void kthread_enqueue_impl (struct kthread * t) {
 	
 	//	Ignore threads that are not ready to
 	//	run
-	if (t->state!=READY) return;
+	if (!kthread_runnable(t)) return;
 	
 	//	No threads in the queue add this one as the
 	//	only thread
@@ -668,7 +678,7 @@ static void kdispatch (void) {
 		//	Re-enqueue previously running thread
 		kthread_enqueue(current_thread);
 		
-	} while (current_thread->state!=READY);
+	} while (!kthread_runnable(current_thread));
 	
 }
 
@@ -774,20 +784,74 @@ static int kinit (void) {
 }
 
 
-static void kthread_set_priority (thread_t thread, priority_t prio) {
+static struct kthread * kthread_get (thread_t t) {
 	
-	//	The idle thread is always thread zero
-	if ((thread>MAX_THREADS) || (thread==0) || (threads[thread].state==DEAD)) {
+	if ((t>MAX_THREADS) || (t==0)) {
 		
 		last_error=EINVAL;
+		return 0;
+		
+	}
+	
+	struct kthread * retr=&threads[t];
+	
+	if (retr->state==DEAD) {
+		
+		last_error=EINVAL;
+		return 0;
+		
+	}
+	
+	return retr;
+	
+}
+
+
+static void kthread_set_priority (thread_t thread, priority_t prio) {
+	
+	struct kthread * t=kthread_get(thread);
+	if (!t) return;
+	
+	t->priority=prio;
+	//	The change of priority may have affected when the thread
+	//	should run again
+	kthread_enqueue(t);
+	
+}
+
+
+static void kthread_suspend (thread_t thread) {
+	
+	struct kthread * t=kthread_get(thread);
+	if (!t) return;
+	
+	if (t->suspended) {
+		
+		last_error=EALREADY;
 		return;
 		
 	}
 	
-	threads[thread].priority=prio;
-	//	The change of priority may have affected when the thread
-	//	should run again
-	kthread_enqueue(&threads[thread]);
+	t->suspended=true;
+	if (t==current_thread) kdispatch();
+	
+}
+
+
+static void kthread_resume (thread_t thread) {
+	
+	struct kthread * t=kthread_get(thread);
+	if (!t) return;
+	
+	if (!t->suspended) {
+		
+		last_error=EALREADY;
+		return;
+		
+	}
+	
+	t->suspended=false;
+	kthread_enqueue(t);
 	
 }
 
@@ -1390,6 +1454,19 @@ static int kstart (void) {
 				SYSCALL_POP(prio,args,i);
 				
 				kthread_set_priority(thread,prio);
+				
+			}break;
+			
+			case SYSCALL_THREAD_SUSPEND:
+			case SYSCALL_THREAD_RESUME:{
+				
+				if (len!=sizeof(thread_t)) goto invalid_length;
+				
+				thread_t thread;
+				SYSCALL_POP(thread,args,i);
+				
+				if (num==SYSCALL_THREAD_SUSPEND) kthread_suspend(thread);
+				else kthread_resume(thread);
 				
 			}break;
 			

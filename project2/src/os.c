@@ -64,6 +64,31 @@ int thread_set_priority (thread_t thread, priority_t prio) {
 }
 
 
+static int thread_helper (enum syscall sc, thread_t thread) {
+	
+	unsigned char buffer [sizeof(thread)];
+	size_t i=0;
+	SYSCALL_PUSH(thread,buffer,i);
+	
+	return syscall(sc,buffer,sizeof(buffer));
+	
+}
+
+
+int thread_suspend (thread_t thread) {
+	
+	return thread_helper(SYSCALL_THREAD_SUSPEND,thread);
+	
+}
+
+
+int thread_resume (thread_t thread) {
+	
+	return thread_helper(SYSCALL_THREAD_RESUME,thread);
+	
+}
+
+
 int mutex_create (mutex_t * mutex) {
 	
 	unsigned char buffer [sizeof(mutex)];
