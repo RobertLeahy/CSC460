@@ -184,6 +184,12 @@
 #define debug_context_switch_begin() EMPTY
 #define debug_context_switch_end() EMPTY
 
+#define debug_uart_rx_begin() EMPTY
+#define debug_uart_rx_end() EMPTY
+
+#define debug_uart_udre_begin() EMPTY
+#define debug_uart_udre_end() EMPTY
+
 #define DEBUG_SETUP EMPTY
 
 #endif
