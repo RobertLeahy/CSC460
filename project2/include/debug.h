@@ -6,6 +6,10 @@
 #pragma once
 
 
+#include <interrupt.h>
+#include <stdbool.h>
+
+
 #define EMPTY ((void)0)
 
 
@@ -32,9 +36,17 @@
 	"nop"	\
 )
 
-#define debug_high_impl(port,pin) (PORT ## port|=1<<(pin))
+#define debug_high_impl(port,pin) do {	\
+	bool i=disable_and_push_interrupt();	\
+	(PORT ## port|=1<<(pin));	\
+	pop_interrupt(i);	\
+} while (0)
 #define debug_high(port,pin) debug_high_impl(port,pin)
-#define debug_low_impl(port,pin) (PORT ## port&=~(1<<(pin)))
+#define debug_low_impl(port,pin) do {	\
+	bool i=disable_and_push_interrupt();	\
+	(PORT ## port&=~(1<<(pin)));	\
+	pop_interrupt(i);	\
+} while (0)
 #define debug_low(port,pin) debug_low_impl(port,pin)
 
 #define debug_setup_impl(port,pin,hi) do {	\

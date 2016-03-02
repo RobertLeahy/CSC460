@@ -142,9 +142,6 @@ static void kexit_impl (void) {
 //	not naked)
 static void kenter (void) {
 	
-	#ifdef DEBUG
-	bool i=disable_and_push_interrupt();
-	#endif
 	debug_user_space_exit();
 	
 	debug_context_switch_begin();
@@ -154,9 +151,6 @@ static void kenter (void) {
 	debug_context_switch_end();
 	
 	debug_user_space_enter();
-	#ifdef DEBUG
-	pop_interrupt(i);
-	#endif
 	
 }
 
