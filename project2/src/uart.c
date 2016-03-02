@@ -1,5 +1,6 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
+#include <debug.h>
 #include <interrupt.h>
 #include <os.h>
 #include <stdbool.h>
@@ -305,13 +306,15 @@ int uart_send (uart_t uart, const void * buf, size_t buflen, size_t * sent) {
 
 #define UART_UDRE_ISR(num) \
 ISR(USART ## num ## _UDRE_vect,ISR_BLOCK) {	\
+	debug_uart_udre_begin();	\
 	struct uart_state * s=&uarts[num];	\
 	if (s->send.buflen==s->sent) {	\
 		UCSR ## num ## B&=~(1<<UDRIE ## num);	\
-		return;	\
+	} else {	\
+		UDR ## num=s->send.buf[s->sent++];	\
+		if (!s->send.async) event_signal_r(s->send.e,0);	\
 	}	\
-	UDR ## num=s->send.buf[s->sent++];	\
-	if (!s->send.async) event_signal_r(s->send.e,0);	\
+	debug_uart_udre_end();	\
 }
 
 
@@ -438,16 +441,18 @@ int uart_recv (uart_t uart, void * buf, size_t buflen, size_t * recvd, struct ua
 
 #define UART_RX_ISR(num) \
 ISR(USART ## num ## _RX_vect,ISR_BLOCK) {	\
+	debug_uart_rx_begin();	\
 	struct uart_state * s=&uarts[num];	\
 	if ((UCSR ## num ## A&FE ## num)!=0) s->recv_error.frame_error=true;	\
 	if ((UCSR ## num ## A&DOR ## num)!=0) s->recv_error.overrun=true;	\
 	if ((UCSR ## num ## A&UPE ## num)!=0) s->recv_error.parity_error=true;	\
 	if (s->recv.buflen==BUFFER_SIZE) {	\
 		UCSR ## num ## B&=~(1<<RXCIE ## num);	\
-		return;	\
+	} else {	\
+		s->recv.buf[s->recv.buflen++]=UDR ## num;	\
+		if (!s->recv.async) event_signal_r(s->recv.e,0);	\
 	}	\
-	s->recv.buf[s->recv.buflen++]=UDR ## num;	\
-	if (!s->recv.async) event_signal_r(s->recv.e,0);	\
+	debug_uart_rx_end();	\
 }
 
 

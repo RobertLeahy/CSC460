@@ -61,15 +61,20 @@
 //	Pin 23: High when in user space
 //	Pin 24: High as scheduler ISR enters until end of reschedule
 //	Pin 25: Pulsed when sleep timer overflows
-//	Pin 26: Pulses out the number of each syscall performed
-//	Pin 27: Pulses out thread number each time kernel exits
+//	Pin 26: High during UART UDRE interrupt
+//	Pin 27: High during UART RX interrupt
 //	Pin 28: High during context switching
 //	Pin 29: Pulses whenever sleep timer compare interrupt occurs
 
+//	DISABLED - Previously port 27
 #define DEBUG_THREAD_PORT A
 #define DEBUG_THREAD_PIN (PA5)
 #define DEBUG_THREAD_SETUP debug_setup(DEBUG_THREAD_PORT,DEBUG_THREAD_PIN,false)
+#undef DEBUG_THREAD_SETUP
+#define DEBUG_THREAD_SETUP EMPTY
 #define debug_thread_signal() debug_pulse(DEBUG_THREAD_PORT,DEBUG_THREAD_PIN,(current_thread-threads))
+#undef debug_thread_signal
+#define debug_thread_signal() EMPTY
 
 #define DEBUG_KERNEL_PORT A
 #define DEBUG_KERNEL_PIN (PA0)
@@ -102,10 +107,15 @@
 #define DEBUG_SLEEP_OVERFLOW_SETUP debug_setup(DEBUG_SLEEP_OVERFLOW_PORT,DEBUG_SLEEP_OVERFLOW_PIN,false)
 #define debug_sleep_overflow() debug_pulse(DEBUG_SLEEP_OVERFLOW_PORT,DEBUG_SLEEP_OVERFLOW_PIN,1)
 
+//	DISABLED - Previously port 26
 #define DEBUG_SYSCALL_PORT A
 #define DEBUG_SYSCALL_PIN (PA4)
 #define DEBUG_SYSCALL_SETUP debug_setup(DEBUG_SYSCALL_PORT,DEBUG_SYSCALL_PIN,false)
+#undef DEBUG_SYSCALL_SETUP
+#define DEBUG_SYSCALL_SETUP EMPTY
 #define debug_syscall() debug_pulse(DEBUG_SYSCALL_PORT,DEBUG_SYSCALL_PIN,syscall_state.num)
+#undef debug_syscall
+#define debug_syscall() EMPTY
 
 //	DISABLED - Previously port 28
 #define DEBUG_MAINTAIN_SLEEP_PORT A
@@ -126,6 +136,18 @@
 #define debug_context_switch_begin() debug_high(DEBUG_CONTEXT_SWITCH_PORT,DEBUG_CONTEXT_SWITCH_PIN)
 #define debug_context_switch_end() debug_low(DEBUG_CONTEXT_SWITCH_PORT,DEBUG_CONTEXT_SWITCH_PIN)
 
+#define DEBUG_UART_RX_PORT A
+#define DEBUG_UART_RX_PIN (PA5)
+#define DEBUG_UART_RX_SETUP debug_setup(DEBUG_UART_RX_PORT,DEBUG_UART_RX_PIN,false)
+#define debug_uart_rx_begin() debug_high(DEBUG_UART_RX_PORT,DEBUG_UART_RX_PIN)
+#define debug_uart_rx_end() debug_low(DEBUG_UART_RX_PORT,DEBUG_UART_RX_PIN)
+
+#define DEBUG_UART_UDRE_PORT A
+#define DEBUG_UART_UDRE_PIN (PA4)
+#define DEBUG_UART_UDRE_SETUP debug_setup(DEBUG_UART_UDRE_PORT,DEBUG_UART_UDRE_PIN,false)
+#define debug_uart_udre_begin() debug_high(DEBUG_UART_UDRE_PORT,DEBUG_UART_UDRE_PIN)
+#define debug_uart_udre_end() debug_low(DEBUG_UART_UDRE_PORT,DEBUG_UART_UDRE_PIN)
+
 #define DEBUG_SETUP do {	\
 	DEBUG_KERNEL_SETUP;	\
 	DEBUG_USER_SPACE_SETUP;	\
@@ -136,6 +158,8 @@
 	DEBUG_SYSCALL_SETUP;	\
 	DEBUG_MAINTAIN_SLEEP_SETUP;	\
 	DEBUG_CONTEXT_SWITCH_SETUP;	\
+	DEBUG_UART_RX_SETUP;	\
+	DEBUG_UART_UDRE_SETUP;	\
 } while (0)
 
 #else
