@@ -69,10 +69,6 @@ static void thread (void * ptr) {
 	
 	if (uart_init(uart,opt)!=0) error();
 	
-	struct timespec ts;
-	memset(&ts,0,sizeof(ts));
-	ts.tv_sec=0;
-	ts.tv_nsec=50000000ULL;
 	char in;
 	for (;;) if ((uart_recv(uart,&in,1,0,0)!=0) || (uart_send(uart,&in,1,0)!=0)) error();
 	
