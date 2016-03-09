@@ -1,5 +1,6 @@
 #include <kernel.h>
 #include <os.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -60,6 +61,33 @@ int thread_set_priority (thread_t thread, priority_t prio) {
 	SYSCALL_PUSH(prio,buffer,i);
 	
 	return syscall(SYSCALL_THREAD_SET_PRIORITY,buffer,sizeof(buffer));
+	
+}
+
+
+static int thread_get_priority_helper (thread_t thread, priority_t * prio, bool eff) {
+	
+	unsigned char buffer[sizeof(thread)+sizeof(prio)+sizeof(eff)];
+	size_t i=0;
+	SYSCALL_PUSH(thread,buffer,i);
+	SYSCALL_PUSH(prio,buffer,i);
+	SYSCALL_PUSH(eff,buffer,i);
+	
+	return syscall(SYSCALL_THREAD_GET_PRIORITY,buffer,sizeof(buffer));
+	
+}
+
+
+int thread_get_priority (thread_t thread, priority_t * prio) {
+	
+	return thread_get_priority_helper(thread,prio,false);
+	
+}
+
+
+int thread_get_effective_priority (thread_t thread, priority_t * prio) {
+	
+	return thread_get_priority_helper(thread,prio,true);
 	
 }
 

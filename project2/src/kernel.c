@@ -628,6 +628,23 @@ static priority_t kthread_get_priority_impl (struct kthread * t, bool eff) {
 }
 
 
+static void kthread_get_priority (thread_t thread, priority_t * prio, bool eff) {
+	
+	if (!prio) {
+		
+		last_error=EINVAL;
+		return;
+		
+	}
+	
+	struct kthread * t=kthread_get(thread);
+	if (!t) return;
+	
+	*prio=kthread_get_priority_impl(t,eff);
+	
+}
+
+
 static void kthread_suspend (thread_t thread) {
 	
 	struct kthread * t=kthread_get(thread);
@@ -1389,6 +1406,21 @@ static int kstart (void) {
 				
 				if (num==SYSCALL_THREAD_SUSPEND) kthread_suspend(thread);
 				else kthread_resume(thread);
+				
+			}break;
+			
+			case SYSCALL_THREAD_GET_PRIORITY:{
+				
+				if (len!=(sizeof(thread_t)+sizeof(priority_t *)+sizeof(bool))) goto invalid_length;
+				
+				thread_t thread;
+				SYSCALL_POP(thread,args,i);
+				priority_t * prio;
+				SYSCALL_POP(prio,args,i);
+				bool eff;
+				SYSCALL_POP(eff,args,i);
+				
+				kthread_get_priority(thread,prio,eff);
 				
 			}break;
 			

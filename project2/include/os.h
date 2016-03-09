@@ -105,6 +105,36 @@ thread_t thread_self (void);
  */
 int thread_set_priority (thread_t thread, priority_t prio);
 /**
+ *	Gets the priority of a particular thread.
+ *
+ *	\param [in] thread
+ *		A handle to the thread-in-question.
+ *	\param [out] prio
+ *		A pointer to an object which shall be initialized
+ *		with the priority of \em thread.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int thread_get_priority (thread_t thread, priority_t * prio);
+/**
+ *	Gets the effective priority of a particular thread.
+ *
+ *	The effective priority differs from the priority of a
+ *	thread when the kernel has seen fit to boost the priority
+ *	of a thread temporarily.
+ *
+ *	\param [in] thread
+ *		A handle to the thread-in-question.
+ *	\param [out] prio
+ *		A pointer to an object which shall be initialized
+ *		with the effective priority of \em thread.
+ *
+ *	\return
+ *		0 if this call succeeds, -1 otherwise.
+ */
+int thread_get_effective_priority (thread_t thread, priority_t * prio);
+/**
  *	Suspends a thread.
  *
  *	A suspended thread will be descheduled and will
