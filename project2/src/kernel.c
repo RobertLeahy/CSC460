@@ -53,12 +53,22 @@ static struct kthread_linked_list thread_queue;
 static struct kthread_linked_list sleep_queue;
 
 
+struct kmutex;
+struct kmutex_node {
+	
+	struct kmutex * next;
+	struct kmutex * prev;
+	
+};
+
+
 struct kmutex {
 	
 	bool valid;
 	struct kthread * owner;
 	unsigned int count;
 	struct kthread_linked_list queue;
+	struct kmutex_node list;
 	
 };
 static struct kmutex mutexes [MAX_MUTEXES];
@@ -579,10 +589,41 @@ static void kthread_set_priority (thread_t thread, priority_t prio) {
 	struct kthread * t=kthread_get(thread);
 	if (!t) return;
 	
+	//	If priority is being inherited we need
+	//	to upgrade the effective priority if and
+	//	only if the priority being set is higher
+	//	than the inherited priority
+	if (t->inheriting_priority && (t->priority>=prio)) {
+		
+		t->original_priority=prio;
+		
+		return;
+		
+	}
+	
 	t->priority=prio;
+	//	Setting the priority means that either:
+	//
+	//	A.	Prority wasn't being inherited, which means
+	//		this next line is effectively a noop
+	//	B.	Priority was being inherited, but the inherited
+	//		priority was less than the priority being set,
+	//		so we stop inheriting
+	t->inheriting_priority=false;
 	//	The change of priority may have affected when the thread
 	//	should run again
 	kthread_enqueue(t);
+	
+}
+
+
+static priority_t kthread_get_priority_impl (struct kthread * t, bool eff) {
+	
+	if (eff) return t->priority;
+	
+	if (t->inheriting_priority) return t->original_priority;
+	
+	return t->priority;
 	
 }
 
@@ -742,6 +783,35 @@ static void kmutex_destroy (mutex_t mutex) {
 }
 
 
+static void kthread_own (struct kthread * t, struct kmutex * m) {
+	
+	if (!t->owner_of.head) {
+		
+		t->owner_of.head=t->owner_of.tail=m;
+		return;
+		
+	}
+	
+	t->owner_of.tail->list.next=m;
+	m->list.prev=t->owner_of.tail;
+	t->owner_of.tail=m;
+	
+}
+
+
+static void kthread_unown (struct kthread * t, struct kmutex * m) {
+	
+	if (m->list.prev) m->list.prev->list.next=m->list.next;
+	else t->owner_of.head=m->list.next;
+	
+	if (m->list.next) m->list.next->list.prev=m->list.prev;
+	else t->owner_of.tail=m->list.prev;
+	
+	memset(&m->list,0,sizeof(m->list));
+	
+}
+
+
 static void kmutex_lock (mutex_t mutex) {
 	
 	struct kmutex * curr=kmutex_get(mutex);
@@ -753,6 +823,7 @@ static void kmutex_lock (mutex_t mutex) {
 		
 		curr->owner=current_thread;
 		curr->count=1;
+		kthread_own(current_thread,curr);
 		return;
 		
 	}
@@ -772,9 +843,55 @@ static void kmutex_lock (mutex_t mutex) {
 		
 	}
 	
-	//	TODO: Handle priority inversion
-	
+	//	current_thread will change as we enter the
+	//	wait queue as this thread will block, so
+	//	we save it
+	struct kthread * waiting=current_thread;
+	//	We're waiting now
+	current_thread->waiting_on=curr;
 	kthread_wait_prio_push(&curr->queue,current_thread);
+	
+	//	Handle priority inversion by boosting priorities
+	//	as necessary
+	priority_t prio=kthread_get_priority_impl(waiting,true);
+	struct kthread * boost=curr->owner;
+	//	If we loop MAX_MUTEXES time there's a deadlock
+	//	somewhere just give up
+	for (size_t iters=0;iters<MAX_MUTEXES;++iters) {
+		
+		priority_t bprio=kthread_get_priority_impl(boost,true);
+		//	No need to boost priority
+		if (bprio>=prio) break;
+		
+		priority_t prev=boost->priority;
+		boost->priority=prio;
+		if (!boost->inheriting_priority) {
+			
+			boost->inheriting_priority=true;
+			boost->original_priority=prev;
+			
+		}
+		
+		//	If the thread we just visited is in
+		//	turn waiting on a mutex we continue to
+		//	that mutex's owner such that our priority
+		//	inheritance scheme is transitive
+		if (boost->waiting_on) {
+			
+			//	TODO: Move it in wait queue
+			
+			boost=boost->waiting_on->owner;
+			continue;
+			
+		}
+		
+		//	The thread we visited isn't waiting on
+		//	anything, make sure it's scheduled at
+		//	its new priority and end
+		kthread_enqueue(boost);
+		break;
+		
+	}
 	
 }
 
@@ -795,8 +912,48 @@ static void kmutex_unlock (mutex_t mutex) {
 	//	recursion count reaches zero
 	if ((--curr->count)!=0) return;
 	
+	kthread_unown(current_thread,curr);
+	
+	//	Transfer ownership to the new owner if there
+	//	is one (i.e. prevent barging)
 	curr->owner=kthread_wait_pop(&curr->queue);
-	curr->count=1;
+	if (curr->owner) {
+		
+		kthread_own(curr->owner,curr);
+		curr->owner->waiting_on=0;
+		curr->count=1;
+		
+	}
+	
+	//	Undo priority inheritance if necessary
+	if (!current_thread->inheriting_priority) return;
+	
+	current_thread->priority=current_thread->original_priority;
+	current_thread->inheriting_priority=false;
+	
+	//	See if there's another thread waiting on
+	//	any of the mutexes that we own we necessitates
+	//	priority inheritance
+	priority_t max=0;
+	for (struct kmutex * m=current_thread->owner_of.head;m;m=m->list.next) {
+		
+		//	No other threads waiting
+		if (!m->queue.head) continue;
+		
+		priority_t consider=m->queue.head->priority;
+		if (consider>max) max=consider;
+		
+	}
+	
+	if (max<=current_thread->priority) return;
+	
+	current_thread->inheriting_priority=true;
+	current_thread->original_priority=current_thread->priority;
+	current_thread->priority=max;
+	
+	//	We don't need to re-enqueue because the thread
+	//	is currently running (should we end the quantum
+	//	at once?)
 	
 }
 

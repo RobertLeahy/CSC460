@@ -65,6 +65,16 @@ struct kthread_node {
 
 
 //	Implementation detail
+struct kmutex;
+struct kmutex_linked_list {
+	
+	struct kmutex * head;
+	struct kmutex * tail;
+	
+};
+
+
+//	Implementation detail
 struct ktime {
 	
 	_Static_assert(sizeof(unsigned long long)>=4,"unsigned long long is not sufficiently wide");
@@ -119,6 +129,10 @@ struct kthread {
 	struct kthread_node wait;
 	struct ktime sleep;
 	bool suspended;
+	struct kmutex_linked_list owner_of;
+	priority_t original_priority;
+	bool inheriting_priority;
+	struct kmutex * waiting_on;
 	
 };
 
