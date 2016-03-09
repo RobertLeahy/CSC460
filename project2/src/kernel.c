@@ -612,7 +612,7 @@ static void kthread_set_priority (thread_t thread, priority_t prio) {
 	t->inheriting_priority=false;
 	//	The change of priority may have affected when the thread
 	//	should run again
-	kthread_enqueue(t);
+	if (t!=current_thread) kthread_enqueue(t);
 	
 }
 
