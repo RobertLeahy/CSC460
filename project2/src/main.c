@@ -59,18 +59,20 @@ static void error (void) {
 }
 
 
-static void thread (void * ptr) {
+static void spin (void * ptr) {
 	
-	uart_t uart=(uart_t)(uintptr_t)ptr;
+	(void)ptr;
 	
-	struct uart_opt opt;
-	memset(&opt,0,sizeof(opt));
-	opt.baud=9600;
+	for (;;) asm volatile ("nop");
 	
-	if (uart_init(uart,opt)!=0) error();
+}
+
+
+static void acquire (void * ptr) {
 	
-	char in;
-	for (;;) if ((uart_recv(uart,&in,1,0,0)!=0) || (uart_send(uart,&in,1,0)!=0)) error();
+	if (mutex_lock(*(mutex_t *)ptr)!=0) error();
+	
+	for (;;) on();
 	
 }
 
@@ -78,7 +80,24 @@ static void thread (void * ptr) {
 void rtos_main (void) {
 	
 	DDRB|=1<<PB7;
+	off();
 	
-	for (uart_t u=0;u<4;++u) if (thread_create(0,thread,0,(void *)(uintptr_t)u)!=0) error();
+	thread_t me=thread_self();
+	
+	mutex_t m;
+	if (mutex_create(&m)!=0) error();
+	if (mutex_lock(m)!=0) error();
+	
+	if (thread_set_priority(me,0)!=0) error();
+	
+	if (thread_create(0,acquire,3,0)!=0) error();
+	
+	priority_t prio;
+	priority_t eff;
+	if ((thread_get_priority(me,&prio)!=0) || (thread_get_effective_priority(me,&eff)!=0)) error();
+	
+	if (thread_create(0,spin,3,0)!=0) error();
+	
+	if (mutex_unlock(m)!=0) error();
 	
 }
