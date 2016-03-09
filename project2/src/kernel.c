@@ -946,6 +946,40 @@ static void kmutex_unlock (mutex_t mutex) {
 	
 	kthread_unown(current_thread,curr);
 	
+	//	Undo priority inheritance if necessary
+	if (current_thread->inheriting_priority) {
+		
+		current_thread->priority=current_thread->original_priority;
+		current_thread->inheriting_priority=false;
+		
+		//	See if there's another thread waiting on
+		//	any of the mutexes that we own we necessitates
+		//	priority inheritance
+		priority_t max=0;
+		for (struct kmutex * m=current_thread->owner_of.head;m;m=m->list.next) {
+			
+			//	No other threads waiting
+			if (!m->queue.head) continue;
+			
+			priority_t consider=m->queue.head->priority;
+			if (consider>max) max=consider;
+			
+		}
+		
+		if (max>current_thread->priority) {
+			
+			current_thread->inheriting_priority=true;
+			current_thread->original_priority=current_thread->priority;
+			current_thread->priority=max;
+			
+		}
+		
+		//	Re-enqueue thread so that it's position
+		//	reflects its newly reduced priority
+		kthread_enqueue(current_thread);
+		
+	}
+	
 	//	Transfer ownership to the new owner if there
 	//	is one (i.e. prevent barging)
 	curr->owner=kthread_wait_pop(&curr->queue);
@@ -956,36 +990,6 @@ static void kmutex_unlock (mutex_t mutex) {
 		curr->count=1;
 		
 	}
-	
-	//	Undo priority inheritance if necessary
-	if (!current_thread->inheriting_priority) return;
-	
-	current_thread->priority=current_thread->original_priority;
-	current_thread->inheriting_priority=false;
-	
-	//	See if there's another thread waiting on
-	//	any of the mutexes that we own we necessitates
-	//	priority inheritance
-	priority_t max=0;
-	for (struct kmutex * m=current_thread->owner_of.head;m;m=m->list.next) {
-		
-		//	No other threads waiting
-		if (!m->queue.head) continue;
-		
-		priority_t consider=m->queue.head->priority;
-		if (consider>max) max=consider;
-		
-	}
-	
-	if (max<=current_thread->priority) return;
-	
-	current_thread->inheriting_priority=true;
-	current_thread->original_priority=current_thread->priority;
-	current_thread->priority=max;
-	
-	//	We don't need to re-enqueue because the thread
-	//	is currently running (should we end the quantum
-	//	at once?)
 	
 }
 
