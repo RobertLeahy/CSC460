@@ -1,6 +1,9 @@
 SUFFIXES+=.mk
 
 
+COM:=COM3
+
+
 GCC:=avr-gcc
 
 
@@ -92,3 +95,8 @@ bin/img.eep: bin/img.elf | bin
 all: bin/img.hex
 bin/img.hex: bin/img.elf | bin
 	avr-objcopy -O ihex -R .eeprom $^ $@
+
+
+.PHONY: install
+install: all
+	avrdude "-CC:\Program Files (x86)\Arduino\hardware\tools\avr/etc/avrdude.conf" -v -patmega2560 -cwiring -P$(COM) -b115200 -D -Uflash:w:bin/img.hex:i
