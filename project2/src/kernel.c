@@ -687,7 +687,8 @@ static struct kthread * kthread_wait_pop (struct kthread_linked_list * ll) {
 	if (!retr) return 0;
 	ll->head=retr->wait.next;
 	retr->wait.next=0;
-	if (!ll->head) ll->tail=0;
+	if (ll->head) ll->head->wait.prev=0;
+	else ll->tail=0;
 	
 	//	If we pop a thread off the waiting queue
 	//	it's ready to run again, so set its state
@@ -709,6 +710,7 @@ static void kthread_wait_insert (struct kthread_linked_list * ll, struct kthread
 	if (after) {
 		
 		t->wait.next=after->wait.next;
+		t->wait.prev=after;
 		after->wait.next=t;
 		
 	} else {
@@ -718,12 +720,21 @@ static void kthread_wait_insert (struct kthread_linked_list * ll, struct kthread
 		
 	}
 	
-	if (!t->wait.next) ll->tail=t;
+	if (t->wait.next) t->wait.next->wait.prev=t;
+	else ll->tail=t;
 	
 }
 
 
 static void kthread_wait_prio_push (struct kthread_linked_list * ll, struct kthread * t) {
+	
+	if (t->wait.prev) t->wait.prev->wait.next=t->wait.next;
+	else ll->head=t->wait.next;
+	
+	if (t->wait.next) t->wait.next->wait.prev=t->wait.prev;
+	else ll->tail=t->wait.prev;
+	
+	memset(&t->wait,0,sizeof(t->wait));
 	
 	if (!ll->head || (ll->head->priority<t->priority)) {
 		
@@ -895,7 +906,11 @@ static void kmutex_lock (mutex_t mutex) {
 		//	inheritance scheme is transitive
 		if (boost->waiting_on) {
 			
-			//	TODO: Move it in wait queue
+			//	Since the priority has been boosted, and
+			//	since this thread is waiting on a mutex,
+			//	it might be necessary to move it ahead in
+			//	that mutex's waiting queue
+			kthread_wait_prio_push(&boost->waiting_on->queue,boost);
 			
 			boost=boost->waiting_on->owner;
 			continue;

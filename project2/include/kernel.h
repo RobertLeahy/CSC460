@@ -61,6 +61,7 @@ struct kthread;
 struct kthread_node {
 	
 	struct kthread * next;
+	struct kthread * prev;
 	
 };
 
