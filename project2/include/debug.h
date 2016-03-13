@@ -94,7 +94,7 @@
 #define debug_kernel_enter() debug_high(DEBUG_KERNEL_PORT,DEBUG_KERNEL_PIN)
 #define debug_kernel_exit() do {	\
 	debug_thread_signal();	\
-	debug_low(DEBUG_QUANTUM_PORT,DEBUG_QUANTUM_PIN);	\
+	debug_quantum_end();	\
 	debug_low(DEBUG_KERNEL_PORT,DEBUG_KERNEL_PIN);	\
 } while (0)
 
@@ -115,6 +115,7 @@
 #define DEBUG_QUANTUM_PIN (PA2)
 #define DEBUG_QUANTUM_SETUP debug_setup(DEBUG_QUANTUM_PORT,DEBUG_QUANTUM_PIN,false)
 #define debug_quantum() debug_high(DEBUG_QUANTUM_PORT,DEBUG_QUANTUM_PIN)
+#define debug_quantum_end() debug_low(DEBUG_QUANTUM_PORT,DEBUG_QUANTUM_PIN)
 
 //	DISABLED - Previously port 29
 #define DEBUG_SLEEP_TIMER_PORT A
