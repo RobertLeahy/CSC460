@@ -347,7 +347,7 @@ static void kthread_enqueue_impl (struct kthread * t) {
 	//	only thread
 	if (!thread_queue.head) {
 		
-		thread_queue.head=t;
+		thread_queue.head=thread_queue.tail=t;
 		return;
 		
 	}
@@ -373,8 +373,20 @@ static void kthread_enqueue_impl (struct kthread * t) {
 			if (loc->queue.next==t) prev=loc;
 			
 			if (kthread_equal_priority(loc,t)) continue;
-			if (after) low_after=kthread_lower_priority(loc,t);
-			else high_before=kthread_higher_priority(loc,t);
+			
+			if (after) {
+				
+				if (kthread_lower_priority(loc,t)) continue;
+				
+				low_after=false;
+				//	No need to continue
+				break;
+				
+			} else if (!kthread_higher_priority(loc,t)) {
+				
+				high_before=false;
+				
+			}
 			
 		}
 		
