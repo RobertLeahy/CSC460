@@ -199,7 +199,9 @@ void Task_Sleep (TICK t) {
 	struct timespec ts;
 	memset(&ts,0,sizeof(ts));
 	ts.tv_sec=t/(1000U/MSECPERTICK);
-	ts.tv_nsec=(t%(1000U/MSECPERTICK))*1000U*MSECPERTICK;
+	ts.tv_nsec=t%(1000U/MSECPERTICK);
+	ts.tv_nsec*=MSECPERTICK;
+	ts.tv_nsec*=1000000ULL;
 	
 	sleep(ts);
 	
