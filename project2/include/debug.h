@@ -71,12 +71,12 @@
 //
 //	Pin 22:	High when in the kernel
 //	Pin 23: Pulses when the kernel starts
-//	Pin 24: High as scheduler ISR enters until end of reschedule
-//	Pin 25: High during UART receive
-//	Pin 26: High during UART UDRE interrupt
-//	Pin 27: High during UART RX interrupt
-//	Pin 28: High during context switching
-//	Pin 29: High during UART send
+//	Pin 24:
+//	Pin 25:
+//	Pin 26:
+//	Pin 27:
+//	Pin 28:
+//	Pin 29:
 
 //	DISABLED - Previously port 27
 #define DEBUG_THREAD_PORT A
@@ -111,11 +111,18 @@
 #undef debug_user_space_exit
 #define debug_user_space_exit() EMPTY
 
+//	DISABLED - Previously port 24
 #define DEBUG_QUANTUM_PORT A
 #define DEBUG_QUANTUM_PIN (PA2)
 #define DEBUG_QUANTUM_SETUP debug_setup(DEBUG_QUANTUM_PORT,DEBUG_QUANTUM_PIN,false)
+#undef DEBUG_QUANTUM_SETUP
+#define DEBUG_QUANTUM_SETUP EMPTY
 #define debug_quantum() debug_high(DEBUG_QUANTUM_PORT,DEBUG_QUANTUM_PIN)
+#undef debug_quantum
+#define debug_quantum() EMPTY
 #define debug_quantum_end() debug_low(DEBUG_QUANTUM_PORT,DEBUG_QUANTUM_PIN)
+#undef debug_quantum_end
+#define debug_quantum_end() EMPTY
 
 //	DISABLED - Previously port 29
 #define DEBUG_SLEEP_TIMER_PORT A
@@ -160,35 +167,70 @@
 #undef debug_maintain_sleep_exit
 #define debug_maintain_sleep_exit() EMPTY
 
+//	DISABLED - Previously port 28
 #define DEBUG_CONTEXT_SWITCH_PORT A
 #define DEBUG_CONTEXT_SWITCH_PIN (PA6)
 #define DEBUG_CONTEXT_SWITCH_SETUP debug_setup(DEBUG_CONTEXT_SWITCH_PORT,DEBUG_CONTEXT_SWITCH_PIN,false)
+#undef DEBUG_CONTEXT_SWITCH_SETUP
+#define DEBUG_CONTEXT_SWITCH_SETUP EMPTY
 #define debug_context_switch_begin() debug_high(DEBUG_CONTEXT_SWITCH_PORT,DEBUG_CONTEXT_SWITCH_PIN)
+#undef debug_context_switch_begin
+#define debug_context_switch_begin() EMPTY
 #define debug_context_switch_end() debug_low(DEBUG_CONTEXT_SWITCH_PORT,DEBUG_CONTEXT_SWITCH_PIN)
+#undef debug_context_switch_end
+#define debug_context_switch_end() EMPTY
 
+//	DISABLED - Previously port 27
 #define DEBUG_UART_RX_PORT A
 #define DEBUG_UART_RX_PIN (PA5)
 #define DEBUG_UART_RX_SETUP debug_setup(DEBUG_UART_RX_PORT,DEBUG_UART_RX_PIN,false)
+#undef DEBUG_UART_RX_SETUP
+#define DEBUG_UART_RX_SETUP EMPTY
 #define debug_uart_rx_begin() debug_high(DEBUG_UART_RX_PORT,DEBUG_UART_RX_PIN)
+#undef debug_uart_rx_begin
+#define debug_uart_rx_begin() EMPTY
 #define debug_uart_rx_end() debug_low(DEBUG_UART_RX_PORT,DEBUG_UART_RX_PIN)
+#undef debug_uart_rx_end
+#define debug_uart_rx_end() EMPTY
 
+//	DISABLED - Previously port 26
 #define DEBUG_UART_UDRE_PORT A
 #define DEBUG_UART_UDRE_PIN (PA4)
 #define DEBUG_UART_UDRE_SETUP debug_setup(DEBUG_UART_UDRE_PORT,DEBUG_UART_UDRE_PIN,false)
+#undef DEBUG_UART_UDRE_SETUP
+#define DEBUG_UART_UDRE_SETUP EMPTY
 #define debug_uart_udre_begin() debug_high(DEBUG_UART_UDRE_PORT,DEBUG_UART_UDRE_PIN)
+#undef debug_uart_udre_begin
+#define debug_uart_udre_begin() EMPTY
 #define debug_uart_udre_end() debug_low(DEBUG_UART_UDRE_PORT,DEBUG_UART_UDRE_PIN)
+#undef debug_uart_udre_end
+#define debug_uart_udre_end() EMPTY
 
+//	DISABLED - Previously port 25
 #define DEBUG_UART_RECV_PORT A
 #define DEBUG_UART_RECV_PIN (PA3)
 #define DEBUG_UART_RECV_SETUP debug_setup(DEBUG_UART_RECV_PORT,DEBUG_UART_RECV_PIN,false)
+#undef DEBUG_UART_RECV_SETUP
+#define DEBUG_UART_RECV_SETUP EMPTY
 #define debug_uart_recv_begin() debug_high(DEBUG_UART_RECV_PORT,DEBUG_UART_RECV_PIN)
+#undef debug_uart_recv_begin
+#define debug_uart_recv_begin() EMPTY
 #define debug_uart_recv_end() debug_low(DEBUG_UART_RECV_PORT,DEBUG_UART_RECV_PIN)
+#undef debug_uart_recv_end
+#define debug_uart_recv_end() EMPTY
 
+//	DISABLED - Previously port 29
 #define DEBUG_UART_SEND_PORT A
 #define DEBUG_UART_SEND_PIN (PA7)
 #define DEBUG_UART_SEND_SETUP debug_setup(DEBUG_UART_SEND_PORT,DEBUG_UART_SEND_PIN,false)
+#undef DEBUG_UART_SEND_SETUP
+#define DEBUG_UART_SEND_SETUP EMPTY
 #define debug_uart_send_begin() debug_high(DEBUG_UART_SEND_PORT,DEBUG_UART_SEND_PIN)
+#undef debug_uart_send_begin
+#define debug_uart_send_begin() EMPTY
 #define debug_uart_send_end() debug_low(DEBUG_UART_SEND_PORT,DEBUG_UART_SEND_PIN)
+#undef debug_uart_send_end
+#define debug_uart_send_end() EMPTY
 
 #define DEBUG_START_PORT A
 #define DEBUG_START_PIN (PA1)
