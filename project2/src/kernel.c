@@ -165,6 +165,19 @@ static void kenter (void) {
 }
 
 
+//	If I don't do it this way the microcontroller
+//	starts freaking out and rebooting and not doing
+//	anything, no idea why which is irritating but
+//	I don't have enough time to actually care
+#if defined(DEBUG) && defined(DEBUG_THREAD_SIGNAL)
+static void debug_thread_signal (void) {
+	
+	debug_pulse(A,PA2,(current_thread-threads));
+	
+}
+#endif
+
+
 static void kexit (void) {
 	
 	debug_kernel_exit();

@@ -71,22 +71,18 @@
 //
 //	Pin 22:	High when in the kernel
 //	Pin 23: Pulses when the kernel starts
-//	Pin 24:
-//	Pin 25:
+//	Pin 24: Pulses thread number each time kernel exits
+//	Pin 25: Pulses the number of the last syscall
 //	Pin 26:
 //	Pin 27:
 //	Pin 28:
 //	Pin 29:
 
-//	DISABLED - Previously port 27
 #define DEBUG_THREAD_PORT A
-#define DEBUG_THREAD_PIN (PA5)
+#define DEBUG_THREAD_PIN (PA2)
 #define DEBUG_THREAD_SETUP debug_setup(DEBUG_THREAD_PORT,DEBUG_THREAD_PIN,false)
-#undef DEBUG_THREAD_SETUP
-#define DEBUG_THREAD_SETUP EMPTY
-#define debug_thread_signal() debug_pulse(DEBUG_THREAD_PORT,DEBUG_THREAD_PIN,(current_thread-threads))
-#undef debug_thread_signal
-#define debug_thread_signal() EMPTY
+//	See note in kernel.c
+#define DEBUG_THREAD_SIGNAL
 
 #define DEBUG_KERNEL_PORT A
 #define DEBUG_KERNEL_PIN (PA0)
@@ -144,15 +140,10 @@
 #undef debug_sleep_overflow
 #define debug_sleep_overflow() EMPTY
 
-//	DISABLED - Previously port 26
 #define DEBUG_SYSCALL_PORT A
-#define DEBUG_SYSCALL_PIN (PA4)
+#define DEBUG_SYSCALL_PIN (PA3)
 #define DEBUG_SYSCALL_SETUP debug_setup(DEBUG_SYSCALL_PORT,DEBUG_SYSCALL_PIN,false)
-#undef DEBUG_SYSCALL_SETUP
-#define DEBUG_SYSCALL_SETUP EMPTY
 #define debug_syscall() debug_pulse(DEBUG_SYSCALL_PORT,DEBUG_SYSCALL_PIN,syscall_state.num)
-#undef debug_syscall
-#define debug_syscall() EMPTY
 
 //	DISABLED - Previously port 28
 #define DEBUG_MAINTAIN_SLEEP_PORT A
