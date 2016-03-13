@@ -229,6 +229,7 @@ static int ktimer_init (void) {
 	memset(&sleep_queue,0,sizeof(sleep_queue));
 	maintain_sleep=false;
 	
+	#ifdef PREEMPTIVE_SCHEDULING
 	//	Timer 1 (16 bit)
 	//	Scheduling timer
 	
@@ -253,6 +254,7 @@ static int ktimer_init (void) {
 	#endif
 	
 	TIMSK1|=(1<<OCIE1A);
+	#endif
 	
 	//	Timer 3
 	//	Sleep timer
@@ -426,10 +428,12 @@ static void kthread_enqueue (struct kthread * t) {
 	//	quantum
 	if (current_thread==prev) return;
 	
+	#ifdef PREEMPTIVE_SCHEDULING
 	//	Restart quantum and clear pending
 	//	interrupt (if any)
 	TCNT1=0;
 	TIFR1=1<<OCF1A;
+	#endif
 	
 }
 
@@ -1597,6 +1601,7 @@ int syscall (enum syscall num, void * args, size_t len) {
 }
 
 
+#ifndef PREEMPTIVE_SCHEDULING
 ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
 	
 	debug_quantum();
@@ -1605,6 +1610,7 @@ ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
 	kenter();
 	
 }
+#endif
 
 
 ISR(TIMER3_OVF_vect,ISR_BLOCK) {
