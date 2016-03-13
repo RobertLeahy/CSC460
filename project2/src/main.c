@@ -1,103 +1,79 @@
 #include <avr/io.h>
 #include <os.h>
-#include <string.h>
-#include <uart.h>
 
 
-static void on (void) {
-	
-	PORTB|=1<<PB7;
-	
+#ifndef TEST
+
+#error TEST must be defined to the desired test number
+
+#elif TEST==1
+
+//
+// LAB - TEST 1
+//	Noah Spriggs, Murray Dunne
+//
+//
+// EXPECTED RUNNING ORDER: P1,P2,P3,P1,P2,P3,P1
+//
+// P1 sleep              lock(attept)            lock
+// P2      sleep                     signal
+// P3           lock wait                  unlock
+
+MUTEX mut;
+EVENT evt;
+
+void Task_P1(void)
+{
+	Task_Sleep(10); // sleep 100ms
+	Mutex_Lock(mut);
+    for(;;);
 }
 
-
-static void off (void) {
-	
-	PORTB&=~(1<<PB7);
-	
+void Task_P2(void)
+{
+	Task_Sleep(20); // sleep 200ms
+	Event_Signal(evt);
+    for(;;);
 }
 
-
-static void wait (unsigned int num) {
-	
-	for (unsigned int n=0;n<num;++n) for (unsigned int i=0;i<32000U;++i) asm volatile ("nop"::);
-	
+void Task_P3(void)
+{
+	Mutex_Lock(mut);
+	Event_Wait(evt);
+	Mutex_Unlock(mut);
+    for(;;);
 }
 
+void a_main(void)
+{
+	/*
+	//Place these as necessary to display output if not already doing so inside the RTOS
+	//initialize pins
+	DDRB |= (1<<PB1);	//pin 52
+	DDRB |= (1<<PB2);	//pin 51	
+	DDRB |= (1<<PB3);	//pin 50
+	
+	
+	PORTB |= (1<<PB1);	//pin 52 on
+	PORTB |= (1<<PB2);	//pin 51 on
+	PORTB |= (1<<PB3);	//pin 50 on
 
-static void blink_number (unsigned int num) {
-	
-	for (unsigned int n=0;n<num;++n) {
-		
-		on();
-		wait(4);
-		off();
-		wait(4);
-		
-	}
-	
+
+	PORTB &= ~(1<<PB1);	//pin 52 off
+	PORTB &= ~(1<<PB2);	//pin 51 off
+	PORTB &= ~(1<<PB3);	//pin 50 off
+
+	*/
+	mut = Mutex_Init();
+	evt = Event_Init();
+
+	Task_Create(Task_P1, 1, 0);
+	Task_Create(Task_P2, 2, 0);
+	Task_Create(Task_P3, 3, 0);
 }
 
+#else
 
-static void error (void) {
-	
-	asm volatile ("cli"::);
-	
-	unsigned int err=errno;
-	for (;;) {
-		
-		wait(25);
-		
-		blink_number(err);
-		#ifdef DEBUG
-		wait(10);
-		blink_number(get_last_syscall());
-		#endif
-		
-	}
-	
-}
+#error TEST specifies invalid test number
 
-
-static void spin (void * ptr) {
-	
-	(void)ptr;
-	
-	for (;;) asm volatile ("nop");
-	
-}
-
-
-static void acquire (void * ptr) {
-	
-	if (mutex_lock(*(mutex_t *)ptr)!=0) error();
-	
-	for (;;) on();
-	
-}
-
-
-void a_main (void) {
-	
-	DDRB|=1<<PB7;
-	off();
-	
-	thread_t me=thread_self();
-	
-	mutex_t m;
-	if (mutex_create(&m)!=0) error();
-	if (mutex_lock(m)!=0) error();
-	
-	if (thread_set_priority(me,0)!=0) error();
-	
-	if (thread_create(0,acquire,3,0)!=0) error();
-	
-	priority_t prio;
-	priority_t eff;
-	if ((thread_get_priority(me,&prio)!=0) || (thread_get_effective_priority(me,&eff)!=0)) error();
-	
-	if (thread_create(0,spin,3,0)!=0) error();
-	
-	if (mutex_unlock(m)!=0) error();
-	
-}
+#endif
