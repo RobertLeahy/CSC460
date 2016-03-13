@@ -1547,13 +1547,13 @@ static int kstart (void) {
 }
 
 
-void rtos_main (void);
+void a_main (void);
 
 
 static void main_thread (void * arg) {
 	
 	(void)arg;
-	rtos_main();
+	a_main();
 	
 }
 

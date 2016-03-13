@@ -77,7 +77,7 @@ static void acquire (void * ptr) {
 }
 
 
-void rtos_main (void) {
+void a_main (void) {
 	
 	DDRB|=1<<PB7;
 	off();
