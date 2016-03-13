@@ -119,7 +119,7 @@ PID Task_Create (void (*f) (void), PRIORITY py, int arg) {
 		do {
 			
 			thread_t handle;
-			if (thread_create(&handle,task_start,py,&s)!=0) break;
+			if (thread_create(&handle,task_start,MINPRIORITY-py,&s)!=0) break;
 			
 			s.handle=handle;
 			s.success=true;
