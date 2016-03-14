@@ -176,13 +176,14 @@ static void kenter (void) {
 //	starts freaking out and rebooting and not doing
 //	anything, no idea why which is irritating but
 //	I don't have enough time to actually care
-#if defined(DEBUG) && defined(DEBUG_THREAD_SIGNAL)
+__attribute__((used))
 static void debug_thread_signal (void) {
 	
+	#if defined(DEBUG) && defined(DEBUG_THREAD_SIGNAL)
 	debug_pulse(A,PA2,(current_thread-threads));
+	#endif
 	
 }
-#endif
 
 
 static void kexit (void) {
