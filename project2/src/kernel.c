@@ -25,6 +25,13 @@
 #define MAIN_PRIO (255U)
 
 
+#ifdef TEST
+#if TEST==4
+#define RELEASE_TIMER3
+#endif
+#endif
+
+
 static struct kthread threads [MAX_THREADS];
 struct kthread * current_thread;
 static error_t last_error;
@@ -269,6 +276,7 @@ static int ktimer_init (void) {
 	TIMSK1|=(1<<OCIE1A);
 	#endif
 	
+	#ifndef RELEASE_TIMER3
 	//	Timer 3
 	//	Sleep timer
 	
@@ -278,16 +286,18 @@ static int ktimer_init (void) {
 	TCCR3B&=~(1<<CS32);
 	TCCR3B|=1<<CS31;
 	TCCR3B|=1<<CS30;
-	//	When adjusting the prescalar
-	//	for this timer this value must
-	//	be adjusted as well
-	#define NANOSECONDS_PER_TICK (4000U)
-	#define TICKS_PER_SECOND (250000UL)
 	
 	TCNT3=0;
 	
 	//	We want to count timer overflows
 	TIMSK3=1<<TOIE3;
+	#endif
+	
+	//	When adjusting the prescalar
+	//	for this timer this value must
+	//	be adjusted as well
+	#define NANOSECONDS_PER_TICK (4000U)
+	#define TICKS_PER_SECOND (250000UL)
 	
 	return 0;
 	
@@ -1236,6 +1246,7 @@ static struct ktime kto_time (struct timespec ts) {
 }
 
 
+#ifndef RELEASE_TIMER3
 #define ksleep_overflow_pending() ((TIFR3&(1<<TOV3))!=0)
 #define ksleep_tick_pending() ((TIFR3&(1<<OCF3A))!=0)
 #define ksleep_enable_tick(cnt) do { OCR3A=(cnt);TIMSK3|=1<<OCIE3A; } while (0)
@@ -1311,13 +1322,16 @@ static void kmaintain_sleep_impl (void) {
 	}
 	
 }
+#endif
 
 
 static void kmaintain_sleep (void) {
 	
 	debug_maintain_sleep_enter();
 	
+	#ifndef RELEASE_TIMER3
 	kmaintain_sleep_impl();
+	#endif
 	
 	debug_maintain_sleep_exit();
 	
@@ -1647,6 +1661,7 @@ ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
 #endif
 
 
+#ifndef RELEASE_TIMER3
 ISR(TIMER3_OVF_vect,ISR_BLOCK) {
 	
 	debug_sleep_overflow();
@@ -1671,3 +1686,4 @@ ISR(TIMER3_COMPA_vect,ISR_BLOCK) {
 	kenter();
 	
 }
+#endif
