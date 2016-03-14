@@ -22,7 +22,7 @@
 //	The priority of the idle task
 #define IDLE_PRIO (0U)
 //	The priority of the main thread
-#define MAIN_PRIO (0U)
+#define MAIN_PRIO (255U)
 
 
 static struct kthread threads [MAX_THREADS];
