@@ -1,4 +1,5 @@
 #include <interrupt.h>
+#include <kernel.h>
 #include <mantis.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -152,8 +153,9 @@ PID Task_Create (void (*f) (void), PRIORITY py, int arg) {
 void Task_Terminate (void) {
 	
 	//	I hate the concept of this function, it encourages
-	//	shoddy programming
-	for (;;) yield();
+	//	shoddy programming, which is why it's not exposed
+	//	via os.h
+	syscall(SYSCALL_THREAD_TERMINATE,0,0);
 	
 }
 

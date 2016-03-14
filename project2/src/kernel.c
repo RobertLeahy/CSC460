@@ -1558,6 +1558,15 @@ static int kstart (void) {
 				
 			}break;
 			
+			case SYSCALL_THREAD_TERMINATE:{
+				
+				if (len!=0) goto invalid_length;
+				
+				current_thread->state=DEAD;
+				kdispatch();
+				
+			}break;
+			
 			default:
 				last_error=EINVAL;
 				break;
