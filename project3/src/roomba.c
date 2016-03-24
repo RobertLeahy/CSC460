@@ -2,6 +2,7 @@
 #include <os.h>
 #include <roomba.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 #include <uart.h>
 
@@ -147,8 +148,82 @@ int roomba_destroy (struct roomba * r) {
 int roomba_clean (struct roomba * r) {
 	
 	unsigned char payload=135U;
-	if (roomba_send(r,&payload,1)!=0) return -1;
+	return roomba_send(r,&payload,1);
 	
-	return 0;
+}
+
+
+int roomba_safe (struct roomba * r) {
+	
+	unsigned char payload=131U;
+	return roomba_send(r,&payload,1);
+	
+}
+
+
+static void roomba_signed_16_push (int16_t v, unsigned char * ptr) {
+	
+	memcpy(ptr,&v,sizeof(v));
+	
+	//	NOTE: We assume that the ATmega 2560 is two's
+	//	complement which seems to be supported by
+	//	documentation
+	
+	#if __BYTE_ORDER__==__ORDER_BIG_ENDIAN__
+	
+	#elif __BYTE_ORDER__==__ORDER_LITTLE_ENDIAN__
+	unsigned char tmp=ptr[0];
+	ptr[0]=ptr[1];
+	ptr[1]=tmp;
+	#else
+	#error PDP endian
+	#endif
+	
+}
+
+
+static int roomba_drive_impl (struct roomba * r, int16_t velocity, int16_t radius) {
+	
+	unsigned char buffer [5];
+	buffer[0]=137U;
+	
+	roomba_signed_16_push(velocity,buffer+1);
+	roomba_signed_16_push(radius,buffer+3);
+	
+	return roomba_send(r,buffer,sizeof(buffer));
+	
+}
+
+
+int roomba_drive (struct roomba * r, int16_t velocity, int16_t radius) {
+	
+	switch (radius) {
+		
+		case 0:
+			radius=32267;
+			break;
+		case 1:
+			++radius;
+			break;
+		case -1:
+			--radius;
+		default:
+			if (radius<-2000) radius=-2000;
+			else if (radius>2000) radius=2000;
+			break;
+		
+	}
+	
+	if (velocity<-500) velocity=-500;
+	if (velocity>500) velocity=500;
+	
+	return roomba_drive_impl(r,velocity,radius);
+	
+}
+
+
+int roomba_turn (struct roomba * r, int16_t velocity, bool left) {
+	
+	return roomba_drive_impl(r,velocity,left ? 1 : -1);
 	
 }

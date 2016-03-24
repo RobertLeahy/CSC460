@@ -7,6 +7,7 @@
 
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <uart.h>
 
 
@@ -75,3 +76,50 @@ int roomba_destroy (struct roomba * r);
  *		0 if the call succeeded, -1 otherwise.
  */
 int roomba_clean (struct roomba * r);
+/**
+ *	Places the Roomba in safe mode.
+ *
+ *	\param [in] r
+ *		A pointer to the roomba structure upon which to
+ *		operate.
+ *
+ *	\return
+ *		0 if the call succeeded, -1 otherwise.
+ */
+int roomba_safe (struct roomba * r);
+/**
+ *	Starts the Roomba driving.
+ *
+ *	\param [in] r
+ *		A pointer to the roomba structure upon which to
+ *		operate.
+ *	\param [in] velocity
+ *		The average velocity at which the Roomba should
+ *		travel in millimetres per second.
+ *	\param [in] radius
+ *		The radius of the turn in millimetres.  If a radius
+ *		of zero is specified the Roomba will drive straight.
+ *		Positive radii cause the Roomba to turn left whereas
+ *		negative radii cause the Roomba to turn right.
+ *
+ *	\return
+ *		0 if the call succeeded, -1 otherwise.
+ */
+int roomba_drive (struct roomba * r, int16_t velocity, int16_t radius);
+/**
+ *	Causes the Roomba to turn in place.
+ *
+ *	\param [in] r
+ *		A pointer to the roomba structure upon which to
+ *		operate.
+ *	\param [in] velocity
+ *		The average velocity at which the Roomba should
+ *		travel in millimetres per second.
+ *	\param [in] left
+ *		\em true if the Roomba should turn left, \em false
+ *		otherwise.
+ *
+ *	\return
+ *		0 if the call succeeded, -1 otherwise.
+ */
+int roomba_turn (struct roomba * r, int16_t velocity, bool left);

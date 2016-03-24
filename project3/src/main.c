@@ -13,6 +13,10 @@ void a_main (void) {
 	struct roomba r;
 	if (roomba_create(&r,opt)!=0) return;
 	
-	if (roomba_clean(&r)!=0) return;
+	if (roomba_safe(&r)!=0) return;
+	
+	if (roomba_turn(&r,250,true)!=0) return;
+	
+	for (;;);
 	
 }
