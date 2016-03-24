@@ -123,6 +123,8 @@ int roomba_destroy (struct roomba * r) {
 	
 	//	TODO: Change baud rate back to default????
 	
+	//	TODO: Reset Roomba????
+	
 	if (uart_cleanup(r->uart)!=0) return -1;
 	
 	return 0;
