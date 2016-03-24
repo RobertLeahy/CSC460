@@ -69,13 +69,25 @@ static int uart_channel_cleanup (struct uart_channel * c) {
 }
 
 
-static void uart_setup (uart_t uart, struct uart_opt opt) {
+static int uart_setup (uart_t uart, struct uart_opt opt) {
 	
-	//	TODO: Use this
-	(void)opt;
-	
-	//	Just assume 9600 baud
-	uint16_t ubrr=103;
+	uint16_t ubrr;
+	switch (opt.baud) {
+		
+		case 9600:
+			ubrr=103;
+			break;
+		case 19200:
+			ubrr=51;
+			break;
+		case 115200:
+			ubrr=8;
+			break;
+		default:
+			errno=EOPNOTSUPP;
+			return -1;
+		
+	}
 	
 	#define uart_setup_impl(num) do {	\
 		UBRR ## num=ubrr;	\
@@ -105,6 +117,8 @@ static void uart_setup (uart_t uart, struct uart_opt opt) {
 	
 	#undef uart_setup_impl
 	
+	return 0;
+	
 }
 
 
@@ -124,9 +138,15 @@ int uart_init (uart_t uart, struct uart_opt opt) {
 		
 		if (uart_channel_init(&s->recv)!=0) break;
 		
-		uart_setup(uart,opt);
+		do {
+			
+			if (uart_setup(uart,opt)!=0) break;
+			
+			return 0;
+			
+		} while (0);
 		
-		return 0;
+		uart_channel_cleanup(&s->recv);
 		
 	} while (0);
 	

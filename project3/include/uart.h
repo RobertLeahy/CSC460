@@ -27,7 +27,8 @@ struct uart_opt {
 	/**
 	 *	The baud rate of the UART.
 	 */
-	unsigned int baud;
+	unsigned long baud;
+	_Static_assert(sizeof(unsigned long)==4U,"baud rate too small");
 	
 };
 /**
