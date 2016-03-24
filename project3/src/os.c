@@ -15,13 +15,11 @@ error_t * get_last_error (void) {
 }
 
 
-#ifdef DEBUG
 unsigned int get_last_syscall (void) {
 	
 	return current_thread->last_syscall;
 	
 }
-#endif
 
 
 int thread_create (thread_t * thread, void (*f) (void *), priority_t prio, void * arg) {

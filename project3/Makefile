@@ -73,6 +73,7 @@ obj/%.o:
 
 	
 OBJS:=\
+obj/error.o \
 obj/kernel.o \
 obj/main.o \
 obj/mantis.o \
