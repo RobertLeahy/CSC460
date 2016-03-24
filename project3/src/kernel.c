@@ -1234,13 +1234,13 @@ static struct ktime kto_time (struct timespec ts) {
 	
 	//	Calculate seconds contribution
 	struct ktime s;
-	unsigned long long os_per_s=TICKS_PER_SECOND/65536UL;
+	unsigned long long os_per_s=TICKS_PER_SECOND/65536ULL;
 	//	Note choice of higher precision to prevent overflow
-	unsigned long ticks_per_s=TICKS_PER_SECOND%65536UL;
+	unsigned long long ticks_per_s=TICKS_PER_SECOND%65536ULL;
 	s.overflows=ts.tv_sec*os_per_s;
 	ticks_per_s*=ts.tv_sec;
-	s.overflows+=ticks_per_s%65536UL;
-	s.remainder=ticks_per_s/65536UL;
+	s.overflows+=ticks_per_s/65536UL;
+	s.remainder=ticks_per_s%65536UL;
 	
 	return ktime_add(retr,ktime_add(s,ns));
 	
