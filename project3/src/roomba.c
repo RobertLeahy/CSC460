@@ -1,6 +1,7 @@
 #include <avr/io.h>
 #include <os.h>
 #include <roomba.h>
+#include <stddef.h>
 #include <string.h>
 #include <uart.h>
 
@@ -84,6 +85,18 @@ static int roomba_init_baud_rate (struct roomba * r, struct roomba_opt opt) {
 }
 
 
+static int roomba_send (struct roomba * r, const void * ptr, size_t num) {
+	
+	size_t sent;
+	if (uart_send(r->uart,ptr,num,&sent)!=0) return -1;
+	
+	//	TODO: Check number of bytes
+	
+	return 0;
+	
+}
+
+
 int roomba_create (struct roomba * r, struct roomba_opt opt) {
 	
 	memset(r,0,sizeof(*r));
@@ -105,8 +118,7 @@ int roomba_create (struct roomba * r, struct roomba_opt opt) {
 	do {
 		
 		unsigned char payload=128U;
-		//	TODO: Check number of bytes sent
-		if (uart_send(r->uart,&payload,1,0)!=0) break;
+		if (roomba_send(r,&payload,1)!=0) break;
 		
 		return 0;
 		
@@ -126,6 +138,16 @@ int roomba_destroy (struct roomba * r) {
 	//	TODO: Reset Roomba????
 	
 	if (uart_cleanup(r->uart)!=0) return -1;
+	
+	return 0;
+	
+}
+
+
+int roomba_clean (struct roomba * r) {
+	
+	unsigned char payload=135U;
+	if (roomba_send(r,&payload,1)!=0) return -1;
 	
 	return 0;
 	

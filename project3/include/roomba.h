@@ -65,3 +65,13 @@ int roomba_create (struct roomba * r, struct roomba_opt opt);
  *		0 if the call succeeded, -1 otherwise.
  */
 int roomba_destroy (struct roomba * r);
+/**
+ *	Causes the Roomba to enter a clean cycle.
+ *
+ *	\param [in] r
+ *		A pointer to a roomba structure upon which to operate.
+ *
+ *	\return
+ *		0 if the call succeeded, -1 otherwise.
+ */
+int roomba_clean (struct roomba * r);
