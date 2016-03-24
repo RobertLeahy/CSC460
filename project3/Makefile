@@ -77,6 +77,7 @@ obj/kernel.o \
 obj/main.o \
 obj/mantis.o \
 obj/os.o \
+obj/roomba.o \
 obj/uart.o
 
 
