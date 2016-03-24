@@ -17,11 +17,6 @@ endif
 OPTS_SHARED:=-I ./include -std=gnu11 -mmcu=atmega2560 -DF_CPU=16000000L -DARDUINO=10607 -DARDUINO_AVR_MEGA2560 -DARDUINO_ARCH_AVR -ffunction-sections -fdata-sections -DPROVIDED_API
 
 
-ifneq ($(TEST),)
-	OPTS_SHARED:=$(OPTS_SHARED) -DTEST=$(TEST)
-endif
-
-
 ifeq ($(OS),Windows_NT)
 	MAKE_PARENT=mkdir.bat $(subst /,\,$(dir $(1)))
 	RMDIR=rmdir.bat $(subst /,\,$(1))
