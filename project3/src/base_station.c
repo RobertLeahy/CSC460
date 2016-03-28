@@ -22,8 +22,9 @@ struct base_station_state {
 static void adc_init (void) {
 	
 	ADCSRA|=(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0);
-	ADMUX|=1<<REFS0;
-	ADCSRA|=1<<ADEN;
+	ADMUX|=(1<<REFS0);
+	ADCSRA|=(1<<ADEN);
+	ADCSRA|=(1<<ADSC);
 	
 }
 
@@ -31,11 +32,37 @@ static void adc_init (void) {
 static uint16_t adc_read (unsigned char c) {
 	
 	ADMUX&=0xE0;
-	ADMUX|=c&7;
+	ADMUX|=c&0x07;
 	ADCSRB=c&(1<<3);
-	ADCSRA|=1<<ADSC;
+	ADCSRA|=(1<<ADSC);
 	while (ADCSRA&(1<<ADSC));
 	return ADCW;
+	
+}
+
+
+static int8_t normalize (uint16_t v) {
+	
+	//	Convert from 10 to 8 bits by
+	//	throwing away bottom 2 bits
+	//	(this is ad hoc lowpass filtering
+	//	as well)
+	v>>=2U;
+	
+	//	Throw into a signed number so we
+	//	represent negative values
+	int16_t s=v;
+	
+	//	Subtract 128 to recenter the range
+	//	around 0 rather than ~127
+	s-=128;
+	
+	//	Now range is -128 to 127 but we never
+	//	want -128 to appear so we special case
+	//	that to -127
+	if (s==-128) s=-127;
+	
+	return s;
 	
 }
 
@@ -56,28 +83,15 @@ static void joystick (void * ptr) {
 		
 		//	A0 = X axis
 		//	A1 = Y axis
-		uint16_t x=adc_read(0);
-		uint16_t y=adc_read(1);
-		
-		//	Input is 10 bit unsigned integer, we
-		//	get rid of the bottom three bits to compress
-		//	the range and as a form of ad hoc lowpass
-		//	filtering
-		x>>=3U;
-		y>>=3U;
-		int16_t xs=x;
-		int16_t ys=y;
-		xs-=128;
-		ys-=128;
-		if (xs==-128) xs=-127;
-		if (ys==-128) ys=-127;
+		int8_t x=normalize(adc_read(0));
+		int8_t y=normalize(adc_read(1));
 		
 		bool j=(PINB&(1<<PB1))==0;
 		
 		if (mutex_lock(state->mutex)!=0) error();
 		
-		state->x=xs;
-		state->y=ys;
+		state->x=x;
+		state->y=y;
 		state->button=j;
 		
 		if (mutex_unlock(state->mutex)!=0) error();
