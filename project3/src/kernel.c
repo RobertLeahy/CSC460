@@ -1650,7 +1650,7 @@ int syscall (enum syscall num, void * args, size_t len) {
 }
 
 
-#ifndef PREEMPTIVE_SCHEDULING
+#ifdef PREEMPTIVE_SCHEDULING
 ISR(TIMER1_COMPA_vect,ISR_BLOCK) {
 	
 	debug_quantum();
