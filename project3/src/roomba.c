@@ -227,3 +227,37 @@ int roomba_turn (struct roomba * r, int16_t velocity, bool left) {
 	return roomba_drive_impl(r,velocity,left ? 1 : -1);
 	
 }
+
+
+static void roomba_drive_direct_clamp (int16_t * value) {
+	
+	if (*value<-500) {
+		
+		*value=-500;
+		return;
+		
+	}
+	
+	if (*value>500) {
+		
+		*value=500;
+		return;
+		
+	}
+	
+}
+
+
+int roomba_drive_direct (struct roomba * r, int16_t r_velocity, int16_t l_velocity) {
+	
+	roomba_drive_direct_clamp(&r_velocity);
+	roomba_drive_direct_clamp(&l_velocity);
+	
+	unsigned char buffer [5];
+	buffer[0]=145U;
+	roomba_signed_16_push(r_velocity,buffer+1);
+	roomba_signed_16_push(l_velocity,buffer+3);
+	
+	return roomba_send(r,buffer,sizeof(buffer));
+	
+}
