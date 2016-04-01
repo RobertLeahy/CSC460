@@ -26,7 +26,6 @@ static void uart (void * ptr) {
 	
 	for (;;) {
 		
-		
 		for (;;) {
 			
 			unsigned char b;
