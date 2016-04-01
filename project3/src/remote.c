@@ -32,14 +32,15 @@ static void roomba (void * ptr) {
 		if (mutex_lock(state->mutex)!=0) error();
 		
 		int16_t y=state->y;
+		int16_t x=state->x;
 		
 		if (mutex_unlock(state->mutex)!=0) error();
 		
 		y*=4;
-		if (y>500) y=500;
-		if (y<-500) y=-500;
-		
-		if (roomba_drive_direct(&state->roomba,y,y)!=0) error();
+		x*=4;
+		int16_t r=y-x;
+		int16_t l=y+x;
+		if (roomba_drive_direct(&state->roomba,r,l)!=0) error();
 		
 	}
 	
