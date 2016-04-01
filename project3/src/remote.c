@@ -10,14 +10,13 @@
 
 struct remote_state {
 	
-	struct timespec period;
 	mutex_t mutex;
 	int8_t x;
 	int8_t y;
 	bool button;
 	uart_t uart;
 	struct roomba roomba;
-	bool dirty;
+	event_t event;
 	
 };
 
@@ -28,10 +27,10 @@ static void roomba (void * ptr) {
 	
 	for (;;) {
 		
+		if (event_wait(state->event)!=0) error();
+		
 		if (mutex_lock(state->mutex)!=0) error();
 		
-		bool dirty=state->dirty;
-		state->dirty=false;
 		int16_t y=state->y;
 		
 		if (mutex_unlock(state->mutex)!=0) error();
@@ -40,13 +39,7 @@ static void roomba (void * ptr) {
 		if (y>500) y=500;
 		if (y<-500) y=-500;
 		
-		if (dirty) {
-			
-			if (roomba_drive_direct(&state->roomba,y,y)!=0) error();
-			
-		}
-		
-		if (sleep(state->period)!=0) error();
+		if (roomba_drive_direct(&state->roomba,y,y)!=0) error();
 		
 	}
 	
@@ -84,11 +77,14 @@ static void uart (void * ptr) {
 		
 		if (mutex_lock(state->mutex)!=0) error();
 		
-		if (state->x!=x) state->dirty=true;
+		if ((state->x!=x) || (state->y!=y) || (state->button!=button)) {
+			
+			if (event_signal(state->event)!=0) error();
+			
+		}
+		
 		state->x=x;
-		if (state->y!=y) state->dirty=true;
 		state->y=y;
-		if (state->button!=button) state->dirty=true;
 		state->button=button;
 		
 		if (mutex_unlock(state->mutex)!=0) error();
@@ -116,8 +112,8 @@ void a_main (void) {
 	struct remote_state state;
 	memset(&state,0,sizeof(state));
 	state.uart=2;
-	state.period.tv_nsec=20000000ULL;
 	if (mutex_create(&state.mutex)!=0) error();
+	if (event_create(&state.event)!=0) error();
 	
 	struct uart_opt opt;
 	memset(&opt,0,sizeof(opt));
