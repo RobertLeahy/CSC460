@@ -70,8 +70,6 @@ static void uart (void * ptr) {
 			
 		}
 		
-		if (sleep(state->period)!=0) error();
-		
 	}
 	
 }
