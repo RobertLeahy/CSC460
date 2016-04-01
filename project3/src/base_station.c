@@ -83,8 +83,8 @@ static void joystick (void * ptr) {
 		
 		//	A0 = X axis
 		//	A1 = Y axis
-		int8_t x=normalize(adc_read(0));
-		int8_t y=normalize(adc_read(1));
+		int8_t x=normalize(adc_read(0)) * -1;
+		int8_t y=normalize(adc_read(1)) * -1;
 		
 		bool j=(PINB&(1<<PB1))==0;
 		
