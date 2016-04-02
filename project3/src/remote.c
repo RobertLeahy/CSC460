@@ -1,3 +1,4 @@
+#include <avr/io.h>
 #include <error.h>
 #include <roomba.h>
 #include <os.h>
@@ -33,6 +34,7 @@ static void roomba (void * ptr) {
 		
 		int16_t y=state->y;
 		int16_t x=state->x;
+		bool button=state->button;
 		
 		if (mutex_unlock(state->mutex)!=0) error();
 		
@@ -41,6 +43,9 @@ static void roomba (void * ptr) {
 		int16_t r=y-x;
 		int16_t l=y+x;
 		if (roomba_drive_direct(&state->roomba,r,l)!=0) error();
+		
+		if (button) PORTB|=1<<PB0;
+		else PORTB&=~(1<<PB0);
 		
 	}
 	
@@ -109,6 +114,10 @@ static void uart (void * ptr) {
 
 
 void a_main (void) {
+	
+	//	Laser is on pin 53
+	DDRB|=1<<PB0;
+	PORTB&=~(1<<PB0);
 	
 	struct remote_state state;
 	memset(&state,0,sizeof(state));
