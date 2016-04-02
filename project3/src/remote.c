@@ -164,6 +164,7 @@ void a_main (void) {
 	state.uart=2;
 	if (mutex_create(&state.mutex)!=0) error();
 	if (event_create(&state.event)!=0) error();
+	if (mutex_create(&state.roomba_lock)!=0) error();
 	state.period.tv_nsec=500000000ULL;
 	
 	struct uart_opt opt;
