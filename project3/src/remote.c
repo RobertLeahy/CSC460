@@ -120,7 +120,7 @@ static void do_ai (struct ai_state * ai, struct remote_state * state) {
 	if (hit_right || hit_left) {
 		
 		ai->behaviour=AI_BEHAVIOUR_RETREAT;
-		ai->remaining_ticks=50;
+		ai->remaining_ticks=35;
 		ai->hit_right=hit_right;
 		
 	}
@@ -142,7 +142,7 @@ static void do_ai (struct ai_state * ai, struct remote_state * state) {
 				if (ai->remaining_ticks==0) {
 					
 					ai->behaviour=AI_BEHAVIOUR_CHANGE_DIRECTION;
-					ai->remaining_ticks=25;
+					ai->remaining_ticks=20;
 					break;
 					
 				}
@@ -158,8 +158,8 @@ static void do_ai (struct ai_state * ai, struct remote_state * state) {
 					break;
 					
 				}
-				l=100;
-				r=-100;
+				l=200;
+				r=-200;
 				if (ai->hit_right) {
 					
 					l*=-1;
