@@ -135,5 +135,8 @@ int roomba_turn (struct roomba * r, int16_t velocity, bool left);
  *	\param [in] l_velocity
  *		The velocity of the left wheel in millimetres per
  *		second.
+ *
+ *	\return
+ *		0 if the call succeeded, -1 otherwise.
  */
 int roomba_drive_direct (struct roomba * r, int16_t r_velocity, int16_t l_velocity);
