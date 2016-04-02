@@ -11,15 +11,52 @@
 
 struct remote_state {
 	
+	struct timespec period;
 	mutex_t mutex;
+	mutex_t roomba_lock;
 	int8_t x;
 	int8_t y;
 	bool button;
+	bool die;
 	uart_t uart;
 	struct roomba roomba;
 	event_t event;
 	
 };
+
+
+static void sensors (void * ptr) {
+	
+	struct remote_state * state=(struct remote_state *)ptr;
+	
+	struct roomba_bumps_and_wheel_drops s;
+	struct roomba_virtual_wall v;
+	for (;;) {
+		
+		if (mutex_lock(state->roomba_lock)!=0) error();
+		
+		if (roomba_sensors(&state->roomba,ROOMBA_BUMPS_AND_WHEEL_DROPS,&s)!=0) error();
+		if (roomba_sensors(&state->roomba,ROOMBA_VIRTUAL_WALL,&v)!=0) error();
+		
+		if (mutex_unlock(state->roomba_lock)!=0) error();
+		
+		if (s.bump_left || s.bump_right || v.virtual_wall) {
+			
+			if (mutex_lock(state->mutex)!=0) error();
+			state->die=true;
+			if (event_signal(state->event)!=0) error();
+			if (mutex_unlock(state->mutex)!=0) error();
+			
+		} else {
+			
+			
+		}
+		
+		if (sleep(state->period)!=0) error();
+		
+	}
+	
+}
 
 
 static void roomba (void * ptr) {
@@ -35,6 +72,7 @@ static void roomba (void * ptr) {
 		int16_t y=state->y;
 		int16_t x=state->x;
 		bool button=state->button;
+		bool die=state->die;
 		
 		if (mutex_unlock(state->mutex)!=0) error();
 		
@@ -42,7 +80,9 @@ static void roomba (void * ptr) {
 		x*=4;
 		int16_t r=y-x;
 		int16_t l=y+x;
-		if (roomba_drive_direct(&state->roomba,r,l)!=0) error();
+		if (mutex_lock(state->roomba_lock)!=0) error();
+		if (roomba_drive_direct(&state->roomba,die ? 0 : r,die ? 0 : l)!=0) error();
+		if (mutex_unlock(state->roomba_lock)!=0) error();
 		
 		if (button) PORTB|=1<<PB0;
 		else PORTB&=~(1<<PB0);
@@ -124,6 +164,7 @@ void a_main (void) {
 	state.uart=2;
 	if (mutex_create(&state.mutex)!=0) error();
 	if (event_create(&state.event)!=0) error();
+	state.period.tv_nsec=500000000ULL;
 	
 	struct uart_opt opt;
 	memset(&opt,0,sizeof(opt));
@@ -140,6 +181,7 @@ void a_main (void) {
 	
 	if (thread_set_priority(thread_self(),0)!=0) error();
 	if (thread_create(0,roomba,0,&state)!=0) error();
+	if (thread_create(0,sensors,0,&state)!=0) error();
 	
 	uart(&state);
 	
