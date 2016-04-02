@@ -98,6 +98,20 @@ static int roomba_send (struct roomba * r, const void * ptr, size_t num) {
 }
 
 
+static int roomba_recv (struct roomba * r, void * ptr, size_t num) {
+	
+	size_t recvd;
+	if (uart_recv(r->uart,ptr,num,&recvd,0)!=0) return -1;
+	
+	//	TODO: Check number of bytes
+	
+	//	TODO: Handle receive error codes
+	
+	return 0;
+	
+}
+
+
 int roomba_create (struct roomba * r, struct roomba_opt opt) {
 	
 	memset(r,0,sizeof(*r));
@@ -259,5 +273,36 @@ int roomba_drive_direct (struct roomba * r, int16_t r_velocity, int16_t l_veloci
 	roomba_signed_16_push(l_velocity,buffer+3);
 	
 	return roomba_send(r,buffer,sizeof(buffer));
+	
+}
+
+
+int roomba_sensors (struct roomba * r, enum roomba_packet_id id, void * ptr) {
+	
+	//	Request sensor data
+	unsigned char buffer [2];
+	buffer[0]=142;
+	buffer[1]=(unsigned char)id;
+	if (roomba_send(r,buffer,sizeof(buffer))!=0) return -1;
+	
+	switch (id) {
+		
+		case ROOMBA_BUMPS_AND_WHEEL_DROPS:{
+			
+			struct roomba_bumps_and_wheel_drops * p=(struct roomba_bumps_and_wheel_drops *)ptr;
+			
+			unsigned char b;
+			if (roomba_recv(r,&b,1)!=0) return -1;
+			
+			p->bump_right=(b&1)!=0;
+			p->bump_left=(b&2)!=0;
+			p->wheel_drop_right=(b&4)!=0;
+			p->wheel_drop_left=(b&8)!=0;
+			
+		}break;
+		
+	}
+	
+	return 0;
 	
 }

@@ -39,6 +39,27 @@ struct roomba_opt {
 };
 
 
+enum roomba_packet_id {
+	
+	ROOMBA_BUMPS_AND_WHEEL_DROPS=7
+	
+};
+
+
+/**
+ *	Represents a Roomba "Bumps and Wheel Drops"
+ *	packet.
+ */
+struct roomba_bumps_and_wheel_drops {
+	
+	bool wheel_drop_left;
+	bool wheel_drop_right;
+	bool bump_left;
+	bool bump_right;
+	
+};
+
+
 /**
  *	Initializes a roomba structure and sets up all
  *	appropriate hardware to communicate with a Roomba.
@@ -140,3 +161,20 @@ int roomba_turn (struct roomba * r, int16_t velocity, bool left);
  *		0 if the call succeeded, -1 otherwise.
  */
 int roomba_drive_direct (struct roomba * r, int16_t r_velocity, int16_t l_velocity);
+/**
+ *	Requests a sensor packet from the Roomba.
+ *
+ *	\param [in] r
+ *		A pointer to the roomba structure upon which to
+ *		operate.
+ *	\param [in] id
+ *		The ID of the packet to request.
+ *	\param [out] ptr
+ *		A pointer to the structure which shall receive sensor
+ *		data.  If this does not point to a structure which
+ *		correlates with \em id then the behaviour is undefined.
+ *
+ *	\return
+ *		0 if the call succeeded, -1 otherwise.
+ */
+int roomba_sensors (struct roomba * r, enum roomba_packet_id id, void * ptr);
