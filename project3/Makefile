@@ -14,7 +14,7 @@ else
 endif
 
 
-OPTS_SHARED:=-I ./include -std=gnu11 -mmcu=atmega2560 -DF_CPU=16000000L -DARDUINO=10607 -DARDUINO_AVR_MEGA2560 -DARDUINO_ARCH_AVR -ffunction-sections -fdata-sections -DPROVIDED_API -DPREEMPTIVE_SCHEDULING
+OPTS_SHARED:=-I ./include -std=gnu11 -mmcu=atmega2560 -DF_CPU=16000000L -DARDUINO=10607 -DARDUINO_AVR_MEGA2560 -DARDUINO_ARCH_AVR -ffunction-sections -fdata-sections -DPREEMPTIVE_SCHEDULING
 
 
 ifneq ($(BASE_STATION),)
