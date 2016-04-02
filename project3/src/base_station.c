@@ -15,6 +15,8 @@ struct base_station_state {
 	mutex_t mutex;
 	uart_t uart;
 	struct timespec period;
+	int8_t x0;
+	int8_t y0;
 	
 };
 
@@ -41,7 +43,7 @@ static uint16_t adc_read (unsigned char c) {
 }
 
 
-static int8_t normalize (uint16_t v) {
+static int8_t normalize (uint16_t v, int8_t c) {
 	
 	//	Convert from 10 to 8 bits by
 	//	throwing away bottom 2 bits
@@ -57,10 +59,12 @@ static int8_t normalize (uint16_t v) {
 	//	around 0 rather than ~127
 	s-=128;
 	
-	//	Now range is -128 to 127 but we never
-	//	want -128 to appear so we special case
-	//	that to -127
-	if (s==-128) s=-127;
+	//	Apply the offset for the calibration
+	s-=c;
+	
+	//	Clamp
+	if (s>127) s=127;
+	if (s<-127) s=-127;
 	
 	return s;
 	
@@ -77,14 +81,15 @@ static void joystick (void * ptr) {
 	
 	struct base_station_state * state=(struct base_station_state *)ptr;
 	
-	(void)state;
+	state->x0=normalize(adc_read(0),0);
+	state->y0=normalize(adc_read(1),0);
 	
 	for (;;) {
 		
 		//	A0 = X axis
 		//	A1 = Y axis
-		int8_t x=normalize(adc_read(0));
-		int8_t y=normalize(adc_read(1)) * -1;
+		int8_t x=normalize(adc_read(0),state->x0);
+		int8_t y=normalize(adc_read(1),state->y0) * -1;
 		
 		bool j=(PINB&(1<<PB1))==0;
 		
