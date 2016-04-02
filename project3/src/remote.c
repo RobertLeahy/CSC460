@@ -27,6 +27,20 @@ struct remote_state {
 };
 
 
+/*static void uart_debug_adc (uint16_t uart) {
+	
+	char str [5];
+	str[0]=((uart/1000)%10)+'0';
+	str[1]=((uart/100)%10)+'0';
+	str[2]=((uart/10)%10)+'0';
+	str[3]=(uart%10)+'0';
+	str[4]=' ';
+	
+	if (uart_send(0,str,sizeof(str),0)!=0) error();
+	
+}*/
+
+
 static void die (struct remote_state * state) {
 	
 	if (mutex_lock(state->mutex)!=0) error();
