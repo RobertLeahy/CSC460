@@ -21,7 +21,8 @@ struct remote_state {
 	bool die;
 	uart_t uart;
 	struct roomba roomba;
-	event_t event;
+	struct roomba_bumps_and_wheel_drops bumps_and_wheel_drops;
+	struct roomba_virtual_wall virtual_wall;
 	
 };
 
@@ -32,7 +33,6 @@ static void die (struct remote_state * state) {
 	
 	state->die=true;
 	
-	if (event_signal(state->event)!=0) error();
 	if (mutex_unlock(state->mutex)!=0) error();
 	
 }
@@ -45,9 +45,6 @@ static void sensors (void * ptr) {
 	//
 	//	Light sensor is on channel 0
 	uint16_t ls=adc_read(0);
-	
-	DDRB|=1<<PB7;
-	PORTB&=~(1<<PB7);
 	
 	struct remote_state * state=(struct remote_state *)ptr;
 	
@@ -62,7 +59,12 @@ static void sensors (void * ptr) {
 		
 		if (mutex_unlock(state->roomba_lock)!=0) error();
 		
-		if (s.bump_left || s.bump_right || v.virtual_wall) die(state);
+		if (mutex_lock(state->mutex)!=0) error();
+		
+		state->bumps_and_wheel_drops=s;
+		state->virtual_wall=v;
+		
+		if (mutex_unlock(state->mutex)!=0) error();
 		
 		//	Read light sensor
 		uint16_t lsc=adc_read(0);
@@ -78,13 +80,115 @@ static void sensors (void * ptr) {
 }
 
 
-static void roomba (void * ptr) {
+enum ai_behaviour {
 	
-	struct remote_state * state=(struct remote_state *)ptr;
+	AI_BEHAVIOUR_FORWARD,
+	AI_BEHAVIOUR_RETREAT,
+	AI_BEHAVIOUR_CHANGE_DIRECTION
+	
+};
+
+
+struct ai_state {
+	
+	enum ai_behaviour behaviour;
+	unsigned int remaining_ticks;
+	bool hit_right;
+	
+};
+
+
+static void ai_state_clear (struct ai_state * state) {
+	
+	state->behaviour=AI_BEHAVIOUR_FORWARD;
+	state->remaining_ticks=0;
+	state->hit_right=false;
+	
+}
+
+
+static void do_ai (struct ai_state * ai, struct remote_state * state) {
+	
+	bool hit_right;
+	bool hit_left;
+	
+	if (mutex_lock(state->mutex)!=0) error();
+	hit_right=state->bumps_and_wheel_drops.bump_right;
+	hit_left=state->bumps_and_wheel_drops.bump_left || state->virtual_wall.virtual_wall;
+	if (mutex_unlock(state->mutex)!=0) error();
+	
+	if (hit_right || hit_left) {
+		
+		ai->behaviour=AI_BEHAVIOUR_RETREAT;
+		ai->remaining_ticks=50;
+		ai->hit_right=hit_right;
+		
+	}
+	
+	int16_t r;
+	int16_t l;
 	
 	for (;;) {
 		
-		if (event_wait(state->event)!=0) error();
+		enum ai_behaviour orig=ai->behaviour;
+		
+		switch (ai->behaviour) {
+			
+			case AI_BEHAVIOUR_FORWARD:
+				r=350;
+				l=350;
+				break;
+			case AI_BEHAVIOUR_RETREAT:
+				if (ai->remaining_ticks==0) {
+					
+					ai->behaviour=AI_BEHAVIOUR_CHANGE_DIRECTION;
+					ai->remaining_ticks=25;
+					break;
+					
+				}
+				
+				r=-200;
+				l=-200;
+				--ai->remaining_ticks;
+				break;
+			case AI_BEHAVIOUR_CHANGE_DIRECTION:
+				if (ai->remaining_ticks==0) {
+					
+					ai->behaviour=AI_BEHAVIOUR_FORWARD;
+					break;
+					
+				}
+				l=100;
+				r=-100;
+				if (ai->hit_right) {
+					
+					l*=-1;
+					r*=-1;
+					
+				}
+				--ai->remaining_ticks;
+				break;
+			
+		}
+		
+		if (orig==ai->behaviour) break;
+		
+	}
+	
+	if (mutex_lock(state->roomba_lock)!=0) error();
+	if (roomba_drive_direct(&state->roomba,r,l)!=0) error();
+	if (mutex_unlock(state->roomba_lock)!=0) error();	
+	
+}
+
+
+static void roomba (void * ptr) {
+	
+	struct remote_state * state=(struct remote_state *)ptr;
+	struct ai_state ai;
+	ai_state_clear(&ai);
+	
+	for (;;) {
 		
 		if (mutex_lock(state->mutex)!=0) error();
 		
@@ -95,16 +199,48 @@ static void roomba (void * ptr) {
 		
 		if (mutex_unlock(state->mutex)!=0) error();
 		
-		y*=4;
-		x*=4;
-		int16_t r=y-x;
-		int16_t l=y+x;
-		if (mutex_lock(state->roomba_lock)!=0) error();
-		if (roomba_drive_direct(&state->roomba,die ? 0 : r,die ? 0 : l)!=0) error();
-		if (mutex_unlock(state->roomba_lock)!=0) error();
+		if (die) {
+			
+			if (mutex_lock(state->roomba_lock)!=0) error();
+			if (roomba_drive_direct(&state->roomba,0,0)!=0) error();
+			if (mutex_unlock(state->roomba_lock)!=0) error();
+			
+			return;
+			
+		}
 		
+		//	Laser
 		if (button) PORTB|=1<<PB0;
 		else PORTB&=~(1<<PB0);
+		
+		//	If the other end isn't sending anything
+		//	interesting defer to the AI
+		if ((x==0) && (y==0)) {
+			
+			do_ai(&ai,state);
+			
+		//	Otherwise execute the commands from the
+		//	other end and clear the AI state (so that
+		//	the robot starts "fresh")
+		} else {
+			
+			ai_state_clear(&ai);
+			
+			//	Translate values from base station
+			//	to right and left wheel speeds
+			y*=4;
+			x*=4;
+			int16_t r=y-x;
+			int16_t l=y+x;
+			
+			//	Send speed to Roomba
+			if (mutex_lock(state->roomba_lock)!=0) error();
+			if (roomba_drive_direct(&state->roomba,r,l)!=0) error();
+			if (mutex_unlock(state->roomba_lock)!=0) error();
+			
+		}
+		
+		if (sleep(state->period)!=0) error();
 		
 	}
 	
@@ -142,12 +278,6 @@ static void uart (void * ptr) {
 		
 		if (mutex_lock(state->mutex)!=0) error();
 		
-		if ((state->x!=x) || (state->y!=y) || (state->button!=button)) {
-			
-			if (event_signal(state->event)!=0) error();
-			
-		}
-		
 		state->x=x;
 		state->y=y;
 		state->button=button;
@@ -182,9 +312,8 @@ void a_main (void) {
 	memset(&state,0,sizeof(state));
 	state.uart=2;
 	if (mutex_create(&state.mutex)!=0) error();
-	if (event_create(&state.event)!=0) error();
 	if (mutex_create(&state.roomba_lock)!=0) error();
-	state.period.tv_nsec=500000000ULL;
+	state.period.tv_nsec=20000000ULL;
 	
 	struct uart_opt opt;
 	memset(&opt,0,sizeof(opt));
