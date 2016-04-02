@@ -50,7 +50,7 @@ void error (void) {
 	unsigned int s=get_last_syscall();
 	
 	DDRB|=1<<PB7;
-	DDRB&=~(1<<PB7);
+	PORTB&=~(1<<PB7);
 	
 	for (;;) {
 		
