@@ -1,3 +1,4 @@
+#include <adc.h>
 #include <avr/io.h>
 #include <error.h>
 #include <roomba.h>
@@ -25,7 +26,28 @@ struct remote_state {
 };
 
 
+static void die (struct remote_state * state) {
+	
+	if (mutex_lock(state->mutex)!=0) error();
+	
+	state->die=true;
+	
+	if (event_signal(state->event)!=0) error();
+	if (mutex_unlock(state->mutex)!=0) error();
+	
+}
+
+
 static void sensors (void * ptr) {
+	
+	adc_init();
+	//	Get initial light sensor value
+	//
+	//	Light sensor is on channel 0
+	uint16_t ls=adc_read(0);
+	
+	DDRB|=1<<PB7;
+	PORTB&=~(1<<PB7);
 	
 	struct remote_state * state=(struct remote_state *)ptr;
 	
@@ -40,17 +62,14 @@ static void sensors (void * ptr) {
 		
 		if (mutex_unlock(state->roomba_lock)!=0) error();
 		
-		if (s.bump_left || s.bump_right || v.virtual_wall) {
-			
-			if (mutex_lock(state->mutex)!=0) error();
-			state->die=true;
-			if (event_signal(state->event)!=0) error();
-			if (mutex_unlock(state->mutex)!=0) error();
-			
-		} else {
-			
-			
-		}
+		if (s.bump_left || s.bump_right || v.virtual_wall) die(state);
+		
+		//	Read light sensor
+		uint16_t lsc=adc_read(0);
+		//	Threshold of 20 is adjustable
+		if (lsc>(ls+20)) die(state);
+		//	Adaptable default value
+		else ls=lsc;
 		
 		if (sleep(state->period)!=0) error();
 		

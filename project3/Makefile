@@ -78,6 +78,7 @@ obj/%.o:
 
 	
 OBJS:=\
+obj/adc.o \
 obj/error.o \
 obj/kernel.o \
 obj/main.o \
