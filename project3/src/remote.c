@@ -205,6 +205,9 @@ static void roomba (void * ptr) {
 			if (roomba_drive_direct(&state->roomba,0,0)!=0) error();
 			if (mutex_unlock(state->roomba_lock)!=0) error();
 			
+			//	Make sure laser is turned off
+			PORTB&=~(1<<PB0);
+			
 			return;
 			
 		}
