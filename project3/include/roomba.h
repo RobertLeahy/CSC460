@@ -41,7 +41,8 @@ struct roomba_opt {
 
 enum roomba_packet_id {
 	
-	ROOMBA_BUMPS_AND_WHEEL_DROPS=7
+	ROOMBA_BUMPS_AND_WHEEL_DROPS=7,
+	ROOMBA_VIRTUAL_WALL=13
 	
 };
 
@@ -56,6 +57,16 @@ struct roomba_bumps_and_wheel_drops {
 	bool wheel_drop_right;
 	bool bump_left;
 	bool bump_right;
+	
+};
+
+
+/**
+ *	Represents a Roomba "Virtual Wall" packet.
+ */
+struct roomba_virtual_wall {
+	
+	bool virtual_wall;
 	
 };
 

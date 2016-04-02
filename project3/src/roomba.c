@@ -301,6 +301,17 @@ int roomba_sensors (struct roomba * r, enum roomba_packet_id id, void * ptr) {
 			
 		}break;
 		
+		case ROOMBA_VIRTUAL_WALL:{
+			
+			struct roomba_virtual_wall * p=(struct roomba_virtual_wall *)ptr;
+			
+			unsigned char b;
+			if (roomba_recv(r,&b,1)!=0) return -1;
+			
+			p->virtual_wall=b!=0;
+			
+		}break;
+		
 	}
 	
 	return 0;
