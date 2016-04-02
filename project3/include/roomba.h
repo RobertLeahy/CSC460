@@ -122,7 +122,7 @@ int roomba_drive (struct roomba * r, int16_t velocity, int16_t radius);
  *	\return
  *		0 if the call succeeded, -1 otherwise.
  */
-int roomba_turn (struct roomba * r, int16_t velocity, bool left);\
+int roomba_turn (struct roomba * r, int16_t velocity, bool left);
 /**
  *	Controls the speed of the Roomba's wheels directly.
  *
