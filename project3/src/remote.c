@@ -38,6 +38,16 @@ static void die (struct remote_state * state) {
 }
 
 
+static bool is_zero (int8_t v) {
+	
+	if (v>=5) return false;
+	if (v<=-5) return false;
+	
+	return true;
+	
+}
+
+
 static void sensors (void * ptr) {
 	
 	adc_init();
@@ -192,6 +202,8 @@ static void roomba (void * ptr) {
 		
 		if (mutex_lock(state->mutex)!=0) error();
 		
+		int8_t orig_y=state->y;
+		int8_t orig_x=state->x;
 		int16_t y=state->y;
 		int16_t x=state->x;
 		bool button=state->button;
@@ -218,7 +230,7 @@ static void roomba (void * ptr) {
 		
 		//	If the other end isn't sending anything
 		//	interesting defer to the AI
-		if ((x==0) && (y==0)) {
+		if (is_zero(orig_x) && is_zero(orig_y)) {
 			
 			do_ai(&ai,state);
 			
