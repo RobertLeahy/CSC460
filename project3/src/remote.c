@@ -40,8 +40,8 @@ static void die (struct remote_state * state) {
 
 static bool is_zero (int8_t v) {
 	
-	if (v>=5) return false;
-	if (v<=-5) return false;
+	if (v>=15) return false;
+	if (v<=-15) return false;
 	
 	return true;
 	
